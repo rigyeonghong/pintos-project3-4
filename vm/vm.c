@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "vm/uninit.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -53,26 +54,54 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-
+		struct page *new_page = (struct page *)malloc(sizeof(struct page));
+		if (type == VM_ANON) uninit_new(new_page, upage, init, type, aux, anon_initializer); //[3-1?] ??
+		else if (type == VM_FILE)
+			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+		else{
+			printf("유효하지 않은 페이지 타입\n");
+			goto err;
+		}
 		/* TODO: Insert the page into the spt. */
+		if (spt_insert_page(spt, new_page)==false)
+			goto err;
 	}
+	return true;
 err:
 	return false;
 }
 
 /* Find VA from spt and return page. On error, return NULL. */
 struct page *
-spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
+spt_find_page (struct supplemental_page_table *spt, void *va) {
 	struct page *page = NULL;
+
 	/* TODO: Fill this function. */
-	page->va = pg_round_down(va);
-	struct hash_elem *va_hash_elem = hash_find(&spt->spt_hash, &page->elem);
-	if (va_hash_elem == NULL)
-		page = NULL;
-	else
-		page = hash_entry(va_hash_elem, struct page, elem);
+	// [3-1?] 우리가 원하는 va에 해당하는 페이지를 찾기 위해 가짜 페이지 할당
+	struct page *temp = palloc_get_page(PAL_USER);
+	temp->va = pg_round_down(va); 
+	// 가짜 페이지와 같은 hash를 가지는 페이지를 찾아옴
+	struct hash_elem *va_hash_elem = hash_find(&spt->spt_hash, &temp->h_elem);
+	// 가짜 페이지 메모리 해제
+	palloc_free_page(temp);
+
+	if (va_hash_elem != NULL)
+		page = hash_entry(va_hash_elem, struct page, h_elem);
+
 	return page;
 }
+
+// struct page *spt_find_page(struct supplemental_page_table *spt, void *va){
+
+// 	struct page *temp;
+// 	temp->va = pg_round_down(va);
+// 	struct hash_elem *va_hash_elem = hash_find(&spt->spt_hash, &temp->elem);
+// 	if (va_hash_elem == NULL)
+// 		return NULL;
+// 	else
+// 		return hash_entry(va_hash_elem, struct page, elem);
+// }
+
 
 /* Insert PAGE into spt with validation. */
 bool
@@ -80,11 +109,21 @@ spt_insert_page (struct supplemental_page_table *spt,
 		struct page *page) {
 	int succ = false;
 	/* TODO: Fill this function. */
-	if (hash_insert(&spt->spt_hash, &page->elem)==NULL){
+	if (hash_insert(&spt->spt_hash, &page->h_elem)==NULL){
 		succ = true;
 	}
 	return succ;
 }
+
+// bool spt_insert_page(struct supplemental_page_table *spt, struct page *page){
+
+// 	if (hash_insert(&spt->spt_hash, &page->elem)==NULL) {
+// 		return true;
+// 	}
+// 	else {
+// 		return false;
+// 	}
+// }
 
 void
 spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
@@ -160,7 +199,7 @@ bool
 vm_claim_page (void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function */
-	page = pt_find_page(&thread_current()->spt, va);
+	page = spt_find_page(&thread_current()->spt, va);
 	return vm_do_claim_page (page);
 }
 
@@ -175,73 +214,11 @@ vm_do_claim_page (struct page *page) {
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// [3-1?] wr 세팅을 1로 하는게 맞나?
-	pml4_set_page(&thread_current()->pml4, page, frame, 1);
+	if (pml4_set_page(&thread_current()->pml4, page, frame, 1)==NULL)
+		return false;
 
 	return swap_in (page, frame->kva);
 }
-
-/* Initialize new supplemental page table */
-void
-supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
-	hash_init(&spt->spt_hash, spt_hash_func, spt_less_func);
-}
-
-static unsigned spt_hash_func(const struct hash_elem *e, void *aux)
-{
-	struct page *p = hash_entry(e, struct page, elem);
-	return hash_int(p->va);
-}
-
-static bool spt_less_func(const struct hash_elem *a, const struct hash_elem *b)
-{
-	struct page *ap = hash_entry(a, struct page, elem);
-	struct page *bp = hash_entry(b, struct page, elem);
-
-	if (ap->va < bp->va)
-		return true;
-	else
-		return false;
-}
-
-// struct page *spt_find_page(struct supplemental_page_table *spt, void *va){
-
-// 	struct page *temp;
-// 	temp->va = pg_round_down(va);
-// 	struct hash_elem *va_hash_elem = hash_find(&spt->spt_hash, &temp->elem);
-// 	if (va_hash_elem == NULL)
-// 		return NULL;
-// 	else
-// 		return hash_entry(va_hash_elem, struct page, elem);
-// }
-
-// bool spt_insert_page(struct supplemental_page_table *spt, struct page *page){
-
-// 	if (hash_insert(&spt->spt_hash, &page->elem)==NULL) {
-// 		return true;
-// 	}
-// 	else {
-// 		return false;
-// 	}
-// }
-
-static struct frame *vm_get_frame(void){
-	void *new_kva = palloc_get_page(PAL_USER); //유저 풀에서 새로운 물리 페이지를 가져온다
-	if (new_kva==NULL){
-		PANIC("todo"); //페이지 할당이 실패하면, 일단 패닉 -> 나중에 수정
-	}
-	else{
-		// 프레임 초기화
-		struct frame *new_frame; 
-		new_frame->kva = new_kva;
-		// 프레임에 매핑된 페이지 초기화
-		struct page *new_page;
-		new_page->frame = new_frame;
-		new_page->va = new_kva;
-		// [3-1?] 다른 멤버들 초기화 필요? (operations, union)
-		return new_frame;
-	}
-}
-
 
 // bool vm_do_claim_page(struct page *page){
 // 	struct frame *f = vm_get_frame();
@@ -254,10 +231,44 @@ static struct frame *vm_get_frame(void){
 // 	return pml4_set_page(&thread_current()->pml4, page, f, 1);
 // }
 
-// bool vm_claim_page(void *va){
-// 	struct page *p = spt_find_page(&thread_current()->spt, va);
-// 	return vm_do_claim_page(p);
-// }
+
+/* Initialize new supplemental page table */
+void
+supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
+	hash_init(&spt->spt_hash, spt_hash_func, spt_less_func, NULL);
+}
+
+static unsigned spt_hash_func(const struct hash_elem *e, void *aux UNUSED)
+{
+	const struct page *p = hash_entry(e, struct page, h_elem);
+	return hash_bytes(&p->va, sizeof p->va);
+}
+
+static bool spt_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
+{
+	const struct page *ap = hash_entry(a, struct page, h_elem);
+	const struct page *bp = hash_entry(b, struct page, h_elem);
+
+	return ap->va < bp->va;
+}
+
+static struct frame *vm_get_frame(void){
+	void *new_kva = palloc_get_page(PAL_USER); //유저 풀에서 새로운 물리 페이지를 가져온다
+	if (new_kva==NULL){
+		PANIC("todo"); //페이지 할당이 실패하면, 일단 패닉 -> 나중에 수정
+	}
+	else{
+		// 프레임 초기화
+	struct frame *new_frame = (struct frame *)malloc(sizeof(struct frame)); // [3-1?] 프레임 할당은 어디서 해오지????!!@!!@!!@!!@!@malloc을 하라
+		new_frame->kva = new_kva;
+		// 프레임에 매핑된 페이지 초기화
+		// struct page *new_page;
+		// new_page->frame = new_frame;
+		// new_page->va = new_kva;
+		// [3-1?] 다른 멤버들 초기화 필요? (operations, union)
+		return new_frame;
+	}
+}
 
 /* Copy supplemental page table from src to dst */
 bool

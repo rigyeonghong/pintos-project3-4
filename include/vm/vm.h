@@ -47,7 +47,7 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
-	struct hash_elem elem;
+	struct hash_elem h_elem;
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
@@ -122,5 +122,7 @@ struct page *spt_find_page(struct supplemental_page_table *spt, void *va);
 bool spt_insert_page(struct supplemental_page_table *spt, struct page *page);
 static struct frame *vm_get_frame(void);
 bool vm_do_claim_page(struct page *page);
+static unsigned spt_hash_func(const struct hash_elem *e, void *aux UNUSED);
+static bool spt_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 
 #endif  /* VM_VM_H */

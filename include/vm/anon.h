@@ -5,6 +5,7 @@ struct page;
 enum vm_type;
 
 struct anon_page {
+    /* [3-2] TODO */
 };
 
 void vm_anon_init (void);
