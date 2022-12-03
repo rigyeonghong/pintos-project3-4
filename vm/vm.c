@@ -34,10 +34,7 @@ page_get_type (struct page *page) {
 	}
 }
 
-/* Helpers */
-static struct frame *vm_get_victim (void);
-static bool vm_do_claim_page (struct page *page);
-static struct frame *vm_evict_frame (void);
+
 
 /* Create the pending page object with initializer. If you want to create a
  * page, do not create it directly and make it through this function or
@@ -55,21 +52,33 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
+		printf("----------vm_alloc_page_with_initializer 시작---------\n");
 		struct page *new_page = (struct page *)malloc(sizeof(struct page));
-		if (type == VM_ANON) uninit_new(new_page, upage, init, type, aux, anon_initializer); //[3-1?] ??
-		else if (type == VM_FILE)
-			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
-		else if (type == VM_MARKER_0){
+		printf("----------새 페이지 말록---------\n");
+		if (type == VM_ANON) 
+		{
 			uninit_new(new_page, upage, init, type, aux, anon_initializer);
+			printf("----------anon page 초기화---------\n");
+		} //[3-1?] ??
+		else if (type == VM_FILE)
+		{
+			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+			printf("----------file page 초기화---------\n");
 		}
+			// else if (type == VM_MARKER_0){
+			// 	uninit_new(new_page, upage, init, type, aux, anon_initializer);
+			// }
 		else{
 			printf("유효하지 않은 페이지 타입\n");
 			goto err;
 		}
 		/* TODO: Insert the page into the spt. */
-		if (spt_insert_page(spt, new_page)==false)
+		if (spt_insert_page(spt, new_page)==false){
+			printf("----------spt insert page 실패---------\n");
 			goto err;
+		}
 	}
+	printf("----------vm_alloc 성공!---------\n");
 	return true;
 err:
 	return false;
@@ -249,7 +258,7 @@ vm_claim_page (void *va UNUSED) {
 }
 
 /* Claim the PAGE and set up the mmu. */
-static bool
+bool
 vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();
 
