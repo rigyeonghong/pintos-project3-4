@@ -182,7 +182,14 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
-
+	if (not_present || write || user){ //  유효하지 않은 접근일 때 
+		// [3-2??] spt_find_page(spt, addr)가 null로 반환하는 경우도 생각해야할까?
+		page = spt_find_page(spt, addr);
+		// [3-2??] 해당 자원 해제?
+		exit(-1);
+	}
+	/* lazy loading 으로 인한 page fault */
+	page = spt_find_page(spt, addr);
 	return vm_do_claim_page (page);
 }
 
