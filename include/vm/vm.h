@@ -118,11 +118,13 @@ bool vm_claim_page (void *va);
 enum vm_type page_get_type (struct page *page);
 
 /* Project 3-1 : Memory Management */
-struct page *spt_find_page(struct supplemental_page_table *spt, void *va);
-bool spt_insert_page(struct supplemental_page_table *spt, struct page *page);
 static struct frame *vm_get_frame(void);
-bool vm_do_claim_page(struct page *page);
 static unsigned spt_hash_func(const struct hash_elem *e, void *aux UNUSED);
 static bool spt_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+
+/* Helpers */
+static struct frame *vm_get_victim(void);
+bool vm_do_claim_page(struct page *page);
+static struct frame *vm_evict_frame(void);
 
 #endif  /* VM_VM_H */

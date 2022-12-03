@@ -220,8 +220,6 @@ tid_t thread_create(const char *name, int priority,
 	struct thread *curr = thread_current();
 	thread_unblock(t); // ready list에 순서에 맞게 넣어줌
 
-
-
 	/* 생성된 스레드의 우선순위가 현재실행중인 스레드의 우선순위보다 높다면 CPU를 양보한다. */
 	/* 첫번째 인자의 우선순위가 높으면 1을반환,두 번째 인자의 우선순위가 높으면 0을반환 */
 	if (cmp_priority(&t->elem, &curr->elem, NULL)) // aux=NULL로 전달
