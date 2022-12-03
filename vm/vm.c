@@ -4,6 +4,7 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 #include "vm/uninit.h"
+#include "threads/mmu.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -58,6 +59,9 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		if (type == VM_ANON) uninit_new(new_page, upage, init, type, aux, anon_initializer); //[3-1?] ??
 		else if (type == VM_FILE)
 			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
+		else if (type == VM_MARKER_0){
+			uninit_new(new_page, upage, init, type, aux, anon_initializer);
+		}
 		else{
 			printf("유효하지 않은 페이지 타입\n");
 			goto err;
@@ -158,11 +162,45 @@ static struct frame *
 vm_get_frame (void) {
 	struct frame *frame = NULL;
 	/* TODO: Fill this function. */
-
+	void *new_kva = palloc_get_page(PAL_USER); //유저 풀에서 새로운 물리 페이지를 가져온다
+	if (new_kva == NULL)
+	{
+		PANIC("todo"); //페이지 할당이 실패하면, 일단 패닉 -> 나중에 수정
+	}
+	else
+	{
+		// 프레임 초기화
+		struct frame *frame = (struct frame *)malloc(sizeof(struct frame)); // [3-1?] 프레임 할당은 어디서 해오지????!!@!!@!!@!!@!@malloc을 하라
+		frame->kva = new_kva;
+		// 프레임에 매핑된 페이지 초기화
+		// struct page *new_page;
+		// new_page->frame = new_frame;
+		// new_page->va = new_kva;
+		// [3-1?] 다른 멤버들 초기화 필요? (operations, union)
+	}
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	return frame;
 }
+
+
+// static struct frame *vm_get_frame(void){
+// 	void *new_kva = palloc_get_page(PAL_USER); //유저 풀에서 새로운 물리 페이지를 가져온다
+// 	if (new_kva==NULL){
+// 		PANIC("todo"); //페이지 할당이 실패하면, 일단 패닉 -> 나중에 수정
+// 	}
+// 	else{
+// 		// 프레임 초기화
+// 	struct frame *new_frame = (struct frame *)malloc(sizeof(struct frame)); // [3-1?] 프레임 할당은 어디서 해오지????!!@!!@!!@!!@!@malloc을 하라
+// 		new_frame->kva = new_kva;
+// 		// 프레임에 매핑된 페이지 초기화
+// 		// struct page *new_page;
+// 		// new_page->frame = new_frame;
+// 		// new_page->va = new_kva;
+// 		// [3-1?] 다른 멤버들 초기화 필요? (operations, union)
+// 		return new_frame;
+// 	}
+// }
 
 /* Growing the stack. */
 static void
@@ -257,24 +295,6 @@ static bool spt_less_func(const struct hash_elem *a, const struct hash_elem *b, 
 	const struct page *bp = hash_entry(b, struct page, h_elem);
 
 	return ap->va < bp->va;
-}
-
-static struct frame *vm_get_frame(void){
-	void *new_kva = palloc_get_page(PAL_USER); //유저 풀에서 새로운 물리 페이지를 가져온다
-	if (new_kva==NULL){
-		PANIC("todo"); //페이지 할당이 실패하면, 일단 패닉 -> 나중에 수정
-	}
-	else{
-		// 프레임 초기화
-	struct frame *new_frame = (struct frame *)malloc(sizeof(struct frame)); // [3-1?] 프레임 할당은 어디서 해오지????!!@!!@!!@!!@!@malloc을 하라
-		new_frame->kva = new_kva;
-		// 프레임에 매핑된 페이지 초기화
-		// struct page *new_page;
-		// new_page->frame = new_frame;
-		// new_page->va = new_kva;
-		// [3-1?] 다른 멤버들 초기화 필요? (operations, union)
-		return new_frame;
-	}
 }
 
 /* Copy supplemental page table from src to dst */
