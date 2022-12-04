@@ -209,6 +209,7 @@ pml4_destroy (uint64_t *pml4) {
  * register. */
 void
 pml4_activate (uint64_t *pml4) {
+	// printf("--------pml4_activate tid: %d---------\n", thread_current()->tid);
 	lcr3 (vtop (pml4 ? pml4 : base_pml4));
 }
 

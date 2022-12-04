@@ -248,10 +248,13 @@ run_task (char **argv) {		//  run 'args-single onearg'
 	//parse_options (char **argv) 함수에서 else if (!strcmp (name, "-threads-tests")) 조건에 따라 true or false
 	if (thread_tests){
 		run_test (task);
-	} else {
+	} 
+	else {
 	/* 인자 함수 process_create_initd(task)를 통해 유저 프로세스를 생성한 후 process_wait() 함수를 사용하여 자식 프로세스가 종료될 때까지 대기한다. */
 	/* (한양대 : process_execute(argv)) */
-		process_wait (process_create_initd (task)); //?? scheduled 여부 확인 후 YES : process.c의 process_exec (void *f_name) 실행 NO : Pintos 종료
+		printf("wait 들어가기 전! :'%s'\n", task);
+		int result = process_wait(process_create_initd(task)); //?? scheduled 여부 확인 후 YES : process.c의 process_exec (void *f_name) 실행 NO : Pintos 종료
+		printf("wait 끝! :'%s', 결과: %d\n", task, result);
 	}
 #else
 	// user_program인지 검사 후 run_test

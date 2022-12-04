@@ -52,33 +52,33 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-		printf("----------vm_alloc_page_with_initializer 시작---------\n");
+		// printf("----------vm_alloc_page_with_initializer 시작---------\n");
 		struct page *new_page = (struct page *)malloc(sizeof(struct page));
-		printf("----------새 페이지 말록---------\n");
+		// printf("----------새 페이지 말록---------\n");
 		if (type == VM_ANON) 
 		{
 			uninit_new(new_page, upage, init, type, aux, anon_initializer);
-			printf("----------anon page 초기화---------\n");
+			// printf("----------anon page 초기화---------\n");
 		} //[3-1?] ??
 		else if (type == VM_FILE)
 		{
 			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
-			printf("----------file page 초기화---------\n");
+			// printf("----------file page 초기화---------\n");
 		}
-			// else if (type == VM_MARKER_0){
-			// 	uninit_new(new_page, upage, init, type, aux, anon_initializer);
-			// }
+		// else if (type == VM_FIRST_STACK){
+		// 	uninit_new(new_page, upage, init, type, aux, anon_initializer);
+		// }
 		else{
-			printf("유효하지 않은 페이지 타입\n");
+			// printf("유효하지 않은 페이지 타입\n");
 			goto err;
 		}
 		/* TODO: Insert the page into the spt. */
 		if (spt_insert_page(spt, new_page)==false){
-			printf("----------spt insert page 실패---------\n");
+			// printf("----------spt insert page 실패---------\n");
 			goto err;
 		}
 	}
-	printf("----------vm_alloc 성공!---------\n");
+	// printf("----------vm_alloc 성공!---------\n");
 	return true;
 err:
 	return false;
@@ -91,16 +91,22 @@ spt_find_page (struct supplemental_page_table *spt, void *va) {
 
 	/* TODO: Fill this function. */
 	// [3-1?] 우리가 원하는 va에 해당하는 페이지를 찾기 위해 가짜 페이지 할당
+	// printf("----va: %p-----\n", va);
 	struct page *temp = palloc_get_page(PAL_USER);
-	temp->va = pg_round_down(va); 
+	temp->va = pg_round_down(va);
+	// printf("----temp->va: %p-----\n", temp->va);
 	// 가짜 페이지와 같은 hash를 가지는 페이지를 찾아옴
 	struct hash_elem *va_hash_elem = hash_find(&spt->spt_hash, &temp->h_elem);
+	// printf("----hash_elem: %p-----\n", va_hash_elem);
 	// 가짜 페이지 메모리 해제
 	palloc_free_page(temp);
 
-	if (va_hash_elem != NULL)
+	if (va_hash_elem != NULL){
+		// printf("----hash elem 찾음!----\n");
 		page = hash_entry(va_hash_elem, struct page, h_elem);
-
+		// printf("찾은 페이지 va : %p\n", page->va);
+	}
+	// printf("----page 찾음!----\n");
 	return page;
 }
 
@@ -172,6 +178,7 @@ vm_get_frame (void) {
 	struct frame *frame = NULL;
 	/* TODO: Fill this function. */
 	void *new_kva = palloc_get_page(PAL_USER); //유저 풀에서 새로운 물리 페이지를 가져온다
+	// printf("--- palloc_get_page: %p -----\n", new_kva);
 	if (new_kva == NULL)
 	{
 		PANIC("todo"); //페이지 할당이 실패하면, 일단 패닉 -> 나중에 수정
@@ -179,14 +186,18 @@ vm_get_frame (void) {
 	else
 	{
 		// 프레임 초기화
-		struct frame *frame = (struct frame *)malloc(sizeof(struct frame)); // [3-1?] 프레임 할당은 어디서 해오지????!!@!!@!!@!!@!@malloc을 하라
+		frame = (struct frame *)malloc(sizeof(struct frame)); // [3-1?] 프레임 할당은 어디서 해오지????!!@!!@!!@!!@!@malloc을 하라
+		// printf("----frame 할당: %p -----\n", frame);
 		frame->kva = new_kva;
+		frame->page = NULL;
+		// printf("----kva	세팅: %p -----\n", frame->kva);
 		// 프레임에 매핑된 페이지 초기화
 		// struct page *new_page;
 		// new_page->frame = new_frame;
 		// new_page->va = new_kva;
 		// [3-1?] 다른 멤버들 초기화 필요? (operations, union)
 	}
+	// printf("----frame 할당: %p -----\n", frame);
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	return frame;
@@ -229,10 +240,17 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+	printf("[vm_try_handle_fault] addr: %p\n", addr);
+	printf("[vm_try_handle_fault] user: %d\n", user);
+	printf("[vm_try_handle_fault] write: %d\n", write);
+	printf("[vm_try_handle_fault] not_present: %d\n", not_present);
+	printf("[vm_try_handle_fault] tid: %d\n", thread_current()->tid);
+
 	if (not_present || write || user){ //  유효하지 않은 접근일 때 
 		// [3-2??] spt_find_page(spt, addr)가 null로 반환하는 경우도 생각해야할까?
 		page = spt_find_page(spt, addr);
 		// [3-2??] 해당 자원 해제?
+		printf("-----vm_try_handle_fault--------\n");
 		exit(-1);
 	}
 	/* lazy loading 으로 인한 page fault */
@@ -253,7 +271,12 @@ bool
 vm_claim_page (void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function */
+	// printf("-----va(vm_calim_page): %p ----------\n", va);
 	page = spt_find_page(&thread_current()->spt, va);
+	if (page==NULL){
+		// printf("page 못찾음~~\n");
+		return false;
+	}
 	return vm_do_claim_page (page);
 }
 
@@ -261,17 +284,25 @@ vm_claim_page (void *va UNUSED) {
 bool
 vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();
+	// printf("----get_frame 완료: -----\n");
 
 	/* Set links */
+	// printf("----frame: %p-----\n", frame);
 	frame->page = page;
+	// printf("----page: %p-----\n", page);
 	page->frame = frame;
+	// printf("----set-link 완료: -----\n");
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// [3-1?] wr 세팅을 1로 하는게 맞나?
-	if (pml4_set_page(&thread_current()->pml4, page, frame, 1)==NULL)
+	if (pml4_set_page(&thread_current()->pml4, page->va, frame->kva, 1)==NULL){
+		// printf("----set_page 실패! -----\n");
 		return false;
+	}
 
-	return swap_in (page, frame->kva);
+	// printf("----set_page 성공-----\n");
+
+	return swap_in(page, frame->kva);
 }
 
 // bool vm_do_claim_page(struct page *page){

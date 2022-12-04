@@ -16,6 +16,7 @@
         "synch.h": "c",
         "filesys.h": "c",
         "pte.h": "c",
-        "stddef.h": "c"
+        "stddef.h": "c",
+        "vaddr.h": "c"
     }
 }
