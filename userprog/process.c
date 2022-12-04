@@ -63,6 +63,7 @@ process_init (void) {
  * Notice that THIS SHOULD BE CALLED ONCE. */
 tid_t
 process_create_initd (const char *file_name) {
+
 	char *fn_copy;
 	tid_t tid;
 	/* file_name 문자열을 파싱(첫번째 토큰) */
@@ -87,6 +88,7 @@ process_create_initd (const char *file_name) {
 	// initd: 생성된 스레드가 실행할 함수를 가리키는 포인터, fn_copy: start_process 함수를 수행할 때 사용하는 인자값
 	// initd : 1st argument(rdi) , fn_copy : 2nd argument(rsi)
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	// printf("---------thread_create 후-----%d-----\n",tid);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 
@@ -783,118 +785,6 @@ void argument_stack(char **argv, int argc, struct intr_frame *if_)
 	memset(if_->rsp, 0, sizeof(void *));
 }
 
-	// /* 영우's argstack */
-	// void argument_stack(char **arg_list, int idx, struct intr_frame *if_)
-	// {
-
-	// 	int i, j;
-	// 	int cnt = 0;
-	// 	int start_addr = if_->rsp;
-
-	// 	// printf("----------argument stack 시작 %d---------\n", idx);
-
-	// 	for (int i = idx - 1; i > -1; i--)
-	// 	{
-
-	// 		// printf("----------포문 들어옴~ %d---------\n", i);
-	// 		// printf("----------arg_list[i]: %s---------\n", arg_list[i]);
-	// 		cnt += strlen(arg_list[i]) + 1;
-	// 		for (j = strlen(arg_list[i]); j > -1; j--)
-	// 		{
-	// 			// printf("----------포포문 들어옴~ %d---------\n", j);
-	// 			if_->rsp = if_->rsp - 1;
-	// 			// printf("---------rsp: %p-----------\n", if_->rsp);
-	// 			// printf("----------멤셋 전, arg_list[i][j]: %s---------\n", arg_list[i][j]);
-	// 			memcpy(if_->rsp, &arg_list[i][j], sizeof(char));
-	// 			//printf("memset_if->rsp :%s \n", *(&if_->rsp));
-	// 		}
-
-	// 		if (i == 0)
-	// 		{
-
-	// 			/* word-align*/
-	// 			int align = 8 - (cnt % 8);
-	// 			for (int k = 0; k < align; k++)
-	// 			{
-	// 				if_->rsp = if_->rsp - 1;
-	// 				memset(if_->rsp, 0, sizeof(char));
-	// 				// printf("----------memset:2---------\n");
-	// 			}
-
-	// 			for (i = idx; i > -1; i--)
-	// 			{
-	// 				if_->rsp = if_->rsp - 8;
-
-	// 				if (i == idx)
-	// 				{
-	// 					memset(if_->rsp, 0, sizeof(char *));
-	// 					// printf("----------memset:3 - %d---------\n", i);
-	// 				}
-	// 				else
-	// 				{
-	// 					start_addr = start_addr - strlen(arg_list[i]) - 1;
-	// 					memcpy(if_->rsp, &start_addr, sizeof(uint64_t *));
-	// 					// printf("----------memcpy:3 - %d---------\n", i);
-	// 				}
-	// 			}
-	// 			if_->rsp = if_->rsp - 8;
-	// 			memset(if_->rsp, 0, sizeof(void *));
-	// 			// printf("----------memset:4---------\n");
-	// 			if_->R.rdi = idx;
-	// 			if_->R.rsi = if_->rsp + 8;
-
-	// 			printf("[argument stack] rsp: %p\n", if_->rsp);
-	// 		}
-	// 	}
-	// 	// printf("----------argument stack 완료!---------\n");
-	// }
-
-	// /* Project 2 - User Program */
-	// void argument_stack(char **token, int count, struct intr_frame *if_) {
-
-	// 	//printf("=========argument_stack 시작=========\n");
-	// 	char *rsp = if_->rsp;
-	// 	//printf("%p\n", if_->rsp);
-
-	// 	int i, j;
-	// 	char *ptr[128];
-
-	// 	for (i = count - 1; i > -1; i--) {
-	// 	 	ptr[i] = rsp - strlen(token[i])-1;
-	// 	 	//printf("%s\n", token[i]);
-
-	// 		for(j = strlen(token[i]); j > -1; j--) {
-	// 		 	rsp = rsp - 1;
-	// 			*rsp = token[i][j];
-	// 			//printf("rsp: %c\n", *rsp);
-	// 		}
-	// 	}
-	// 	//printf("=========arg=========\n");
-
-	// 	// word-align
-	// 	while ((unsigned long)(rsp) % 8 != 0) {
-	// 		rsp = rsp - 1;
-	// 		*rsp = 0;
-	// 	}
-	//  	// 구역 나누기 위함
-	// 	for (int i = 0; i < 8; i++) {
-	// 		rsp = rsp - 1;
-	// 		*rsp = 0;
-	// 	}
-	// 	// 주소값 넣는 부분
-	// 	for (i = count - 1; i > -1; i--) {
-	// 		rsp = rsp - 8;
-	// 		*(uint64_t*)rsp = ptr[i];
-	// 	}
-	// 	// fake address
-	// 	for (i = 0; i < 8; i++) {
-	// 		rsp = rsp - 1;
-	// 		*rsp = 0;
-	// 	}
-
-	// 	//printf("=========argument_stack 끝=========\n");
-	// }
-
 	/* Checks whether PHDR describes a valid, loadable segment in
 	 * FILE and returns true if so, false otherwise. */
 	static bool
@@ -1150,11 +1040,6 @@ setup_stack (struct intr_frame *if_) {
 				// printf("----------success=true ---------\n");
 			}
 		}
-	//struct page *temp = spt_find_page(&thread_current()->spt, stack_bottom);
-	//printf("temp kva: %p\n", temp->frame->kva);
-	//printf("hi\n");
-	//printf("temp kva: %p\n", pml4_get_page(thread_current()->pml4, stack_bottom));
-	// printf("----------setup_stack 끝: ---------\n");
 	return success;
 }
 
