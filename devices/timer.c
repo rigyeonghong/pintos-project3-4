@@ -8,6 +8,7 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 
+
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -89,19 +90,16 @@ timer_elapsed (int64_t then) {
 
 /* Suspends execution for approximately TICKS timer ticks. */
 void
-timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks (); // start: 시작 시 시간(tick)
 
-	ASSERT (intr_get_level () == INTR_ON); // 현재 인터럽트 상태가 enable
-	
-	/* 기존의 busy writing을 유발하는 코드를 삭제 */
-	// while (timer_elapsed (start) < ticks)
+timer_sleep (int64_t ticks) { // thread를 ready_list 에서 제거, sleep queue 에 추가
+	int64_t start = timer_ticks ();
+
+	ASSERT (intr_get_level () == INTR_ON);
+	// while (timer_elapsed (start) < ticks) //timer_elapsed는 인수로 받은 tick과 현재 tick과의 차이를 반환하는 함수가 된다.
 	// thread_yield ();
-
-	/* 새로 구현한 thread를 sleep queue에 삽입하는 함수를 호출 */
-	if(timer_elapsed(start) < ticks) 
-		thread_sleep(start + ticks); // ticks의 시간만큼 재움
-
+	if (timer_elapsed (start) < ticks){ // [수정9] 반복 -> 조건 
+		thread_sleep(start+ticks); // thread를 blocked 상태로 만들고, sleep queue에 삽입하여 대기 , 깨어나야할 시간 인자로 
+	}
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -129,17 +127,44 @@ timer_print_stats (void) {
 }
 
 /* Timer interrupt handler. */
+
 static void
-timer_interrupt (struct intr_frame *args UNUSED) {
-	ticks++; // ticks는 타이머 인터럽트가 발생한 횟수를 의미함, 타이머 인터럽트는 CPU에 내장된 타이머가 자동으로 발생시킴
+timer_interrupt (struct intr_frame *args UNUSED) {	 // [수정11]
+	ticks++;
 	thread_tick ();
 
-	int64_t temp = get_next_tick_to_awake();
-	if(ticks==temp) // ticks는 타이머 인터럽트가 발생할 때마다 작동하므로 각 발생시마다 get_next_tick_to_awake를 체크해줄 수 있음
-	{
-		thread_awake(ticks);
-
+	if (thread_mlfqs){
+		struct thread *cur_thread = thread_current();
+		mlfqs_increment();
+		if(ticks % 4 == 0) {
+			mlfqs_priority(cur_thread);
+			if(ticks % 100 == 0) {
+				mlfqs_load_avg();
+				mlfqs_recalc();
+			}
+		}
+		// original
+		// if(ticks % 100 == 0) {
+		// 	mlfqs_load_avg();
+		// 	mlfqs_recalc();
+		// }
+		// else if(ticks % 4 == 0) {
+		// 	mlfqs_priority(cur_thread);
+		// }
 	}
+
+	if (get_next_tick_to_awake() <= ticks){ /* 매 tick마다 sleep queue에서 깨어날 thread가 있는지 확인하여, 
+깨우는 함수를 호출하도록 한다. */
+		thread_awake(ticks);
+	}
+
+	//mlfqs 추가
+	/* mlfqs 스케줄러일 경우
+	timer_interrupt 가 발생할때 마다 recuent_cpu 1증가,
+	1초마다 load_avg, recent_cpu, priority 계산,
+	매 4tick마다 priority 계산 */
+	}
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

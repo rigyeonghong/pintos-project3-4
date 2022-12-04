@@ -74,11 +74,10 @@ main (void) {
 	bss_init ();
 
 	/* Break command line into arguments and parse options. */
-	argv = read_command_line ();		// argv : -q -f put args-sing run 'args-single onearg'
-	argv = parse_options (argv);
-	#ifdef USERPROG
-		printf("check");
-	#endif
+
+	argv = read_command_line (); //command_line을 읽는다.
+	argv = parse_options (argv); // 해당 line의 option들을 parsing하여 argv에 담는다.
+
 	/* Initialize ourselves as a thread so we can use locks,
 	   then enable console locking. */
 	thread_init ();
@@ -121,7 +120,7 @@ main (void) {
 	printf ("Boot complete.\n");
 
 	/* Run actions specified on kernel command line. */
-	run_actions (argv);
+	run_actions (argv); // argv 실행
 
 	/* Finish up. */
 	if (power_off_when_done)
