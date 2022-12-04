@@ -28,7 +28,7 @@ uninit_new (struct page *page, void *va, vm_initializer *init,
 		enum vm_type type, void *aux,
 		bool (*initializer)(struct page *, enum vm_type, void *)) {
 	ASSERT (page != NULL);
-
+	printf("---------------uninit_new 안---------------------\n");
 	*page = (struct page) {
 		.operations = &uninit_ops,
 		.va = va,
@@ -45,6 +45,7 @@ uninit_new (struct page *page, void *va, vm_initializer *init,
 /* Initalize the page on first fault */
 static bool
 uninit_initialize (struct page *page, void *kva) {
+	printf("=======uninit_initialize=======\n");
 	struct uninit_page *uninit = &page->uninit;
 
 	/* Fetch first, page_initialize may overwrite the values */

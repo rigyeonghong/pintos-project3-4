@@ -228,6 +228,7 @@ parse_options (char **argv) {		// argv : -q -f put args-sing run 'args-single on
 			user_page_limit = atoi (value);
 		else if (!strcmp (name, "-threads-tests"))
 			thread_tests = true;
+			
 #endif
 		else
 			PANIC ("unknown option `%s' (use -h for help)", name);
@@ -252,9 +253,9 @@ run_task (char **argv) {		//  run 'args-single onearg'
 	else {
 	/* 인자 함수 process_create_initd(task)를 통해 유저 프로세스를 생성한 후 process_wait() 함수를 사용하여 자식 프로세스가 종료될 때까지 대기한다. */
 	/* (한양대 : process_execute(argv)) */
-		printf("wait 들어가기 전! :'%s'\n", task);
+		// printf("wait 들어가기 전! :'%s'\n", task);
 		int result = process_wait(process_create_initd(task)); //?? scheduled 여부 확인 후 YES : process.c의 process_exec (void *f_name) 실행 NO : Pintos 종료
-		printf("wait 끝! :'%s', 결과: %d\n", task, result);
+		// printf("wait 끝! :'%s', 결과: %d\n", task, result);
 	}
 #else
 	// user_program인지 검사 후 run_test

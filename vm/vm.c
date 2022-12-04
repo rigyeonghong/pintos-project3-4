@@ -246,7 +246,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	printf("[vm_try_handle_fault] not_present: %d\n", not_present);
 	printf("[vm_try_handle_fault] tid: %d\n", thread_current()->tid);
 
-	if (not_present || write || user){ //  유효하지 않은 접근일 때 
+	if (write || user){ //  유효하지 않은 접근일 때 
 		// [3-2??] spt_find_page(spt, addr)가 null로 반환하는 경우도 생각해야할까?
 		page = spt_find_page(spt, addr);
 		// [3-2??] 해당 자원 해제?
@@ -300,7 +300,7 @@ vm_do_claim_page (struct page *page) {
 		return false;
 	}
 
-	// printf("----set_page 성공-----\n");
+	// printf("-----set_page 성공-----\n");
 
 	return swap_in(page, frame->kva);
 }

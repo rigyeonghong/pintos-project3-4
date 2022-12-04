@@ -52,6 +52,7 @@ process_init (void) {
  * Notice that THIS SHOULD BE CALLED ONCE. */
 tid_t
 process_create_initd (const char *file_name) {
+
 	char *fn_copy;
 	tid_t tid;
 	/* file_name 문자열을 파싱(첫번째 토큰) */
@@ -72,6 +73,7 @@ process_create_initd (const char *file_name) {
 	// initd: 생성된 스레드가 실행할 함수를 가리키는 포인터, fn_copy: start_process 함수를 수행할 때 사용하는 인자값
 	// initd : 1st argument(rdi) , fn_copy : 2nd argument(rsi)
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
+	// printf("---------thread_create 후-----%d-----\n",tid);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
 	return tid;
@@ -318,7 +320,6 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-
 	struct thread *child = get_child_process(child_tid);
 
 	/* 1) TID가 잘못되었거나 2) TID가 호출 프로세스의 자식이 아니거나*/
@@ -332,12 +333,14 @@ process_wait (tid_t child_tid UNUSED) {
 	child->is_waited_flag=true;
 
 	/* 자식프로세스가 종료될 때 까지 부모프로세스 대기(세마포어이용) */
+	printf("--------sema_down 전-----------\n");
 	sema_down(&child->sema_wait);
 	int exit_status = child->process_exit_status;
 
 	/* 자식프로세스 디스크립터 삭제*/
 	remove_child_process(child);
 	sema_up(&child->sema_free); // wake-up child in process_exit - proceed with thread_exit
+	// printf("--------sema_up 후-----------\n");
 	return exit_status;
 }
 
@@ -512,7 +515,7 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
 			|| ehdr.e_type != 2
-			|| ehdr.e_machine != 0x3E // amd64
+			|| ehdr. e_machine != 0x3E // amd64
 			|| ehdr.e_version != 1
 			|| ehdr.e_phentsize != sizeof (struct Phdr)
 			|| ehdr.e_phnum > 1024) {
@@ -577,6 +580,7 @@ load (const char *file_name, struct intr_frame *if_) { // file_name = 'args-sing
 
 	/* Set up stack. */
 	// 스택 초기화
+	// printf("===========스택 초기화 전===========\n");
 	if (!setup_stack (if_))
 		goto done;
 
@@ -949,7 +953,7 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-	// printf("----------setup_stack 시작---------\n");
+	printf("----------setup_stack 시작---------\n");
 	// printf("-----va(setup_stack): %p ----------\n", stack_bottom);
 
 	if (vm_alloc_page(VM_ANON, stack_bottom, 1))
@@ -964,7 +968,7 @@ setup_stack (struct intr_frame *if_) {
 			// printf("----------success=true ---------\n");
 		}
 	}
-	// printf("----------setup_stack 끝: ---------\n");
+	printf("----------setup_stack 끝: ---------\n");
 	return success;
 }
 
@@ -990,12 +994,12 @@ struct thread *get_child_process(int pid){
 	struct thread *cur = thread_current();
 
 	struct list_elem *e;
-
 	for (e=list_begin(&cur->child_list); e!=list_end(&cur->child_list); e=list_next(e)){
 		struct thread *e_cur = list_entry(e, struct thread, child_elem);
 		if (pid==e_cur->tid)
 			return e_cur;
 	}
+	printf("==============return NULL=================\n");
 	return NULL;
 
 }
