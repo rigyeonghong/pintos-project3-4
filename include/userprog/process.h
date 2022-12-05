@@ -13,7 +13,11 @@ void argument_stack(char **arg_list,int idx,struct intr_frame *if_);
 /* Project 2 file descriptor */
 struct file *process_get_file(int fd);
 
-/* Project 2 fork() */
+int process_add_file(struct file *f);
+struct file *process_get_file(int fd);
+// void process_close_file(int fd);
 struct thread *get_child_process(int pid);
-void remove_child_process(struct thread *cp);
+
+void argument_stack(char **argv, int argc, struct intr_frame *if_);
+
 #endif /* userprog/process.h */

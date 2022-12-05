@@ -7,32 +7,34 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
-#include "threads/mmu.h"
-#include "threads/init.h"
-#include "threads/palloc.h"
-#include "filesys/filesys.h"
-#include "threads/synch.h"
-#include "filesys/file.h"
 #include "userprog/process.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "lib/kernel/console.h"
+#include "lib/string.h"
+#include "threads/palloc.h"
+#include "threads/synch.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 void check_address(void *addr);
-void halt (void) NO_RETURN;
-void exit (int status) NO_RETURN;
-tid_t fork (const char *thread_name, struct intr_frame *if_);
-int exec (const char *file);
-int wait (tid_t pid);
+
+void halt (void);
+void exit (int status);
 bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
-int open (const char *file);
-int filesize (int fd);
-int read (int fd, void *buffer, unsigned size);
-int write (int fd, const void *buffer, unsigned size);
-void seek (int fd, unsigned position);
-unsigned tell (int fd);
-void close (int fd);
 
+int open (const char *file); // 파일을 열때
+int filesize (int fd); // 파일의 크기를 알려준다.
+int read (int fd, void *buffer, unsigned size); // 열린 파일의 데이터를 읽음
+int write (int fd, const void *buffer, unsigned size); // 열린 파일의 데이터를 기록
+void seek (int fd, unsigned position); // 열린파일의 위치(offset)를 이동
+unsigned tell (int fd); // 열린 파일의 위치(offset)을 알려줌
+void close (int fd); // 열린 파일을 닫음
+
+int fork (const char *thread_name, struct intr_frame *f);
+int exec (const char *cmd_line);
+int wait (int pid);
 
 /* System call.
  *
@@ -58,375 +60,249 @@ syscall_init (void) {
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
-
-	/* Initialize filesys_lock */
-	lock_init(&filesys_lock);
+	lock_init (&filesys_lock);
 }
 
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
-	// TODO: Your implementation goes here.
-
-	switch(f->R.rax)
-	{
-		
-	// System Call 0 : Halt
-	case SYS_HALT :
-	{
-		halt();
-		break;
+// TODO: Your implementation goes here.
+	
+	int syscall_number = f->R.rax;
+	switch (syscall_number){
+		case SYS_HALT:
+			halt();
+			break;
+		case SYS_EXIT:
+			exit(f->R.rdi);
+			break;
+		case SYS_FORK:
+			f->R.rax = fork(f->R.rdi, f);
+			break;
+		case SYS_EXEC:
+			if(exec(f->R.rdi) == -1) {
+				exit(-1);
+			}
+			break;
+		case SYS_WAIT:
+			f->R.rax = wait(f->R.rdi);
+			break;
+		case SYS_CREATE: // return 값이 있는 함수들은 레지스터의 rax에서 확인
+			f->R.rax = create(f->R.rdi, f->R.rsi);
+			break;
+		case SYS_REMOVE:
+			f->R.rax = remove(f->R.rdi);
+			break;
+		case SYS_OPEN:
+			f->R.rax = open(f->R.rdi);
+			break;
+		case SYS_FILESIZE:
+			f->R.rax = filesize(f->R.rdi);
+			break;
+		case SYS_READ:
+			f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
+			break;
+		case SYS_WRITE:
+			f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
+			break;
+		case SYS_SEEK:
+			seek(f->R.rdi, f->R.rsi);
+			break;
+		case SYS_TELL:
+			f->R.rax = tell(f->R.rdi);
+			break;
+		case SYS_CLOSE:
+			close(f->R.rdi);
+			break;	
+		default:
+			exit(-1);
+			break;
 	}
 
-	// System Call 1 : Exit
-	case SYS_EXIT :
-	{
-		exit(f->R.rdi);
-		break;
-	}
-
-	// System Call 2 : Fork
-	case SYS_FORK :
-	{
-		f->R.rax = fork(f->R.rdi, f);
-		break;
-	}
-
-
-	case SYS_EXEC :
-	{
-		f->R.rax = exec(f->R.rdi);
-		break;
-	}
-
-	// System Call 4 : Wait
-	case SYS_WAIT :
-	{
-		f->R.rax = wait(f->R.rdi);
-		break;
-	}
-
-	// System Call 5 : Create
-	case SYS_CREATE :
-	{
-		f->R.rax = create(f->R.rdi, f->R.rsi);
-		break;
-	}
-
-    // System Call 6 : Remove
-	case SYS_REMOVE :
-	{
-		f->R.rax = remove(f->R.rdi);
-		break;
-	}
-
-	// System Call 7 : Open
-	case SYS_OPEN :
-	{
-		f->R.rax = open(f->R.rdi);
-		break;
-	}
-
-	// System Call 8 : Filesize
-	case SYS_FILESIZE :
-	{
-		f->R.rax = filesize(f->R.rdi);
-		break;
-	}
-
-	// System Call 9 : Read
-	case SYS_READ :
-	{
-		f->R.rax = read(f->R.rdi,f->R.rsi,f->R.rdx);
-		break;
-	}
-
-	// System Call 10 : Write
-	case SYS_WRITE :
-	{
-		f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
-		break;
-	}
-
-	// System Call 11 : Seek
-	case SYS_SEEK :
-	{
-		seek(f->R.rdi, f->R.rsi);
-		break;
-	}
-
-	// System Call 12 : Tell
-	case SYS_TELL :
-	{
-		f->R.rax = tell(f->R.rdi);
-		break;
-	}
-
-	// System Call 13 : Close
-	case SYS_CLOSE :
-	{
-		close(f->R.rdi);
-		break;
-	}
-
-	default:
-		exit(-1);
-
-	}
+// 시스템 콜의 함수의 리턴 값은 인터럽트 프레임의 eax에 저장
+	// thread_exit ();
 }
 
-/* 주소 유효성 검사 - 포인터가 가리키는 주소가 사용자 영역 */
-void 
-check_address(void *addr)
-{
-	struct thread *t = thread_current();
-
-	// 포인터가 가리키는 주소가 유저영역의 주소인지 확인
-	// 잘못된 접근일 경우 프로세스 종료 
-
-	/* Method 1: 
-	 * Verify the validity of a user-provided pointer.
-	 * The simplest way to handle user memory access.
-	 * Use the functions in ‘userprog/pagedir.c’ and in ‘threads/vaddr.h’
-     */
-
-	/* User can pass invalid pointers through the systemcall
-	 * 1) A pointer to kernel virtual memory address space (above PHYS_BASE)
-	 * 2) A null pointer
-	 * 3) A pointer to unmapped virtual memory
-	 */
-	if ((is_user_vaddr(addr) == false) || (addr == NULL) || (pml4_get_page (t->pml4, addr) == NULL))
-	// if (!is_user_vaddr(addr)|| addr == NULL || pml4_get_page(t->pml4, addr)== NULL)
+void check_address(void *addr) {
+	if((!is_user_vaddr(addr)) || (pml4_get_page(thread_current()->pml4, addr)) == NULL||(addr == NULL)){	
 		exit(-1);
+	}
+
+/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
+/* 잘못된 접근일 경우 프로세스 종료 */
 }
 
-/* System Call 0 : Halt */
+
 void
-halt (void){
+halt (void) {
 	power_off();
 }
 
-/* System Call 1 : Create */
 void
-exit (int status){
-	struct thread *cur = thread_current();
-	cur->process_exit_status=status;
-	printf("%s: exit(%d)\n", cur->name, status);
-	thread_exit(); 
+exit (int status) {
+	struct thread *cur_thread = thread_current();
+	cur_thread->exit_status = status;
+	printf("%s: exit(%d)\n", cur_thread->name, status);
+	thread_exit();
 }
 
-
-/* System Call 1 : Fork */
-/* 자식프로세스의 pid 반환 */
-tid_t fork (const char *thread_name, struct intr_frame *if_){
-	// 부모 프로세스는 자식 프로세스가 성공적으로 복제되었는지 확인되기 전까지는 fork()로부터 리턴받지 못함
-	// 즉, 자식 프로세스가 리소스 복제에 실패하면 부모 프로세스의 fork() 호출은 TID_ERROR를 반환해야 함
-	// threads/mmu.c 안의 pml4_for_each()를 사용해서 해당 페이지 테이블 구조를 포함하여 전체 사용자 메모리 공간을 복제하면 됨 
-	// 하지만 전달된 pte_for_each_func 부분의 누락된 부분을 채워야 합니다 
-	return process_fork(thread_name, if_);
-}
-
-/* System Call 3 : Exec */
-int exec (const char *file){
-	char *fn_copy;
-	
-	// 먼저 인자로 받은 file_name 주소의 유효성을 확인
+bool 
+create (const char *file, unsigned initial_size) {
 	check_address(file);
-
-	/* Make a copy of FILE_NAME.
-	 * Otherwise there's a race between the caller and load(). */
-	// palloc_get_page() 함수와 strlcpy() 함수를 이용하여 file_name을 fn_copy로 복사
-	fn_copy = palloc_get_page(PAL_USER);
-	if (fn_copy == NULL)
-		return TID_ERROR;
-	strlcpy(fn_copy, file, PGSIZE);
-
-	if (process_exec(fn_copy)==-1) {
-		exit(-1);
-	}
+	return filesys_create(file, initial_size); // directory:filesys / filesys.c 
 }
 
-/* System Call 4 : Wait */
-int wait (tid_t pid)
-{
-
-	return process_wait(pid);
-
-}
-
-/* System Call 5 : Create */
-bool create(const char *file, unsigned initial_size){
+bool
+remove (const char *file) {
 	check_address(file);
-	bool success = filesys_create(file, initial_size);
-	return success;
+	return filesys_remove(file); // directory:filesys / filesys.c
 }
+// Parent~child struct 구현 
 
-/* System Call 6 : Remove */
-bool remove (const char *file){
-	check_address(file);
-	bool success = filesys_remove(file);
-	return success;
-}
-
-/* System Call 7 : Open */
-int open(const char *file) {
-	struct thread *cur = thread_current();
-
-	check_address(file);
-
-	if (lock_held_by_current_thread(&filesys_lock))
-		return -1;
-	
-	while (cur->fdt[cur->fd_idx] && cur->fd_idx < FDCOUNT_LIMIT) { // } while (cur->fdt[i] != 0);
-		cur->fd_idx++;
-	}
-	
-	if (cur->fd_idx >= FDCOUNT_LIMIT)
-		return -1;
-	
+int open (const char *file){
+	check_address(file); // 파일 유효 주소 확인
 	lock_acquire(&filesys_lock);
-	
-	cur->fdt[cur->fd_idx] = filesys_open(file);
-
-	if (cur->fdt[cur->fd_idx] == NULL)
+	struct file *open_file = filesys_open(file); // 파일 오픈 및 파일 명 지정
+	if (open_file == NULL){ // 오픈 파일 명 값 확인
 		return -1;
-
+	}	
+	int open_file_fd = process_add_file(open_file); // 오픈 파일 파일 디스크립터 테이블에 추가
+	if (open_file_fd == -1){			//실패시
+		file_close(open_file);	 // 파일 닫기
+	} 
 	lock_release(&filesys_lock);
+	return open_file_fd;	 // 성공시 fd값 리턴
+	// 파일을 열 때 사용하는 시스템 콜
+	// 성공 시 fd를 생성하고 반환, 실패 시 -1 반환
+ 	// File : 파일의 이름 및 경로 정보
+};
 
-	return cur->fd_idx;
-}
-
-
-/* System Call 8 : Filesize */
-int filesize (int fd)
-{
-	int file_len;
-	struct file * temp;
-
-	temp = process_get_file(fd);
-
-	if (temp == NULL)
-		return -1;
-
-	file_len = file_length(temp);
-
-	return file_len;
-}
-
-
-/* System Call 10 : Read */
-int read (int fd, void* buffer, unsigned size)
-{
-	struct file * temp;
-	off_t byte;
-	check_address(buffer);
-	check_address(buffer+size-1);
-	temp=process_get_file(fd);
-
-	if (fd == 1 || fd < 0 ){
+int filesize(int fd){
+	if(fd < 0 || fd >= FDCOUNT_LIMIT){
 		return -1;
 	}
-	else if (fd == 0){
-		lock_acquire(&filesys_lock);
-		int saved_size;
-		if (size==0) return 0;
-		for (saved_size=0; saved_size<size; saved_size++){
-			*(uint8_t*)buffer=input_getc();
-			buffer++;
-		}
-		lock_release(&filesys_lock);
-		return saved_size;
+	struct file *cur_file = process_get_file(fd); // 해당 파일 을 가져온다.
+	if (cur_file == NULL){ // 파일 유효 확인
+		return -1;
 	}
-	else{
-		lock_acquire(&filesys_lock);
-		if (temp==NULL){
-			lock_release(&filesys_lock);
-			return 0;
-		}
-		else{
-			byte=file_read(temp,buffer,size);
-			if (byte==0){
-				lock_release(&filesys_lock);
-				return 0;
-			} 
-			lock_release(&filesys_lock);
-			return byte;
-		}
-	}
+	return file_length(cur_file);
+	// return fl; //struct file -> struct inode -> struct inode_disk data -> off_t length에 정보가 담겨있다.
 }
 
-/* System Call 10 : Write */
-int write(int fd, const void *buffer, unsigned size)
-{	
-	struct file * temp;
-	off_t byte;
-	check_address(buffer);
-	check_address(buffer+size-1);
+int read (int fd, void *buffer, unsigned size){
+	check_address(buffer); // 버퍼 유효주소 확인
+	struct file *get_file = process_get_file(fd); // 파일 가져오기
+	int key_length = 0;
 
-	temp=process_get_file(fd);
+	if (get_file == NULL){
+		return -1;
+	}
 	
-	if (fd < 0){
+	if (fd == 0){	 // STDIN 이면
+		char key;
+		while (key_length < size){
+			key = input_getc(); // key 반환 (문자 하나)
+			*(char*)buffer = key; // 버퍼에 넣어주기 (버퍼=주소 ->버퍼=문자형변환)
+			if (key == '\0') {
+				break;
+			}
+			*buffer++;
+			key_length++;
+		}
+	}
+	
+	else if (fd == 1){ // STDOUT 이면 
+		return -1; // 오류 리턴
+	}
+	else { 	 // 이외이면
+		lock_acquire(&filesys_lock); // 읽는동안 락 
+		key_length = file_read(get_file, buffer, size); // return bytes_read; //가져온 파일에서 읽고 버퍼에 넣어준다.
+		lock_release(&filesys_lock); // 락 해제	
+	}
+	return key_length;
+}
+
+int write (int fd, const void *buffer, unsigned size){
+	check_address(buffer); // 버퍼 유효주소 확인
+	struct file *get_file = process_get_file(fd); // 파일 가져오기
+	int key_length;
+	if (get_file == NULL){
 		return -1;
 	}
 
-	else if (fd == 1){
-		putbuf(buffer, size);	
+	else if (fd == 0){
+		return -1;
+	}
+	
+	else if (fd == 1){	 
+		putbuf(buffer, size);
 		return size;
 	}
-
-	else if (fd == 0){
-		return 0;
-	}
-
-	else {
-		if (temp==NULL){
-			return 0;
-		}		
-		else{
-			lock_acquire(&filesys_lock);
-			byte=file_write(temp,buffer,size);
-			if (byte==0){
-				lock_release(&filesys_lock);
-				return 0;
-				}
-			lock_release(&filesys_lock);
-			return byte;
-		}
-	}
-}
-
-
-/* System Call 11 : Seek */
-void seek (int fd, unsigned position){
-	struct file * temp;
-	temp=process_get_file(fd);
-	file_seek(temp,position);
-}
-
-
-/* System Call 12 : Tell */
-unsigned tell (int fd){
-	struct file * temp;
-	temp=process_get_file(fd);
-	return file_tell(temp)?file_tell(temp):-1;
-}
-
-/* System Call 13 : Close */
-void close (int fd){
-	struct file * temp;
-	struct thread *cur = thread_current();
 	
-	if (fd < 0) {
+	else { 	 // 이외이면
+		lock_acquire(&filesys_lock); // 읽는동안 락 
+		key_length = file_write(get_file, buffer, size); // return bytes_read; //가져온 파일에서 읽고 버퍼에 넣어준다.
+		lock_release(&filesys_lock); // 락 해제	
+	}
+	return key_length;
+
+};
+
+void seek (int fd, unsigned position){
+	if (fd < 2){
+		return;
+	} 
+	struct file *get_file = process_get_file(fd); // 파일 가져오기
+	if (get_file == NULL){
 		return;
 	}
+	file_seek(get_file, position);
+};
 
-	temp=process_get_file(fd);
-	
+unsigned tell (int fd){
+	if (fd < 2){
+		return;
+	} 
+	struct file *get_file = process_get_file(fd); // 파일 가져오기
+	if (get_file == NULL){
+		return;
+	}
+	return file_tell(get_file);
+};
 
-	lock_acquire(&filesys_lock);
-	file_close(temp);
+void close (int fd){
+	if (fd < 2){
+		return;
+	} 
+	struct thread* cur_thread = thread_current();
+	struct file *get_file = process_get_file(fd); // 파일 가져오기
+	if (get_file == NULL){
+		return;
+	}
+	file_close(get_file);
+	cur_thread->fd_table[fd] = NULL; // fd 초기화
+};
 
-	cur->fdt[fd] = 0;
-	lock_release(&filesys_lock);
+
+int fork (const char *thread_name, struct intr_frame *f){
+	return process_fork(thread_name, f);
+};
+
+int exec (const char *cmd_line){
+	check_address(cmd_line);
+	char* fn_copy;
+	int size = strlen(cmd_line) + 1;
+	fn_copy = palloc_get_page(PAL_ZERO);
+    if (fn_copy == NULL)
+        exit(-1);
+    strlcpy (fn_copy, cmd_line, size);
+	if (process_exec(fn_copy) == -1) {
+		return -1;
+	}
+	NOT_REACHED();
+	return 0;
 }
 
+int wait (int pid){
+	return process_wait(pid);
+}

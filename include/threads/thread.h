@@ -27,7 +27,13 @@ typedef int tid_t;
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
-#define PRI_MAX 63                      /* Highest priority. */
+#define PRI_MAX 63                     
+ /* Highest priority. */
+
+//project 2 file
+
+#define FDT_PAGES 3
+#define FDCOUNT_LIMIT FDT_PAGES *(1<<9) // limit fd
 
 /* Project 2 */
 #define FDT_PAGES 3					  		// pages to allocate for file descriptor tables (thread_create, process_exit)
@@ -95,8 +101,10 @@ struct thread {
 	tid_t tid;                          /* Thread identifier. */
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
+	int init_priority; // donation 이후 우선순위를 초기화하기 위해 초기값 저장
 	int priority;                       /* Priority. */
-	
+	int64_t wakeup_tick; 					// [수정1] 깨어나야할 tick
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 	int64_t wakeup_tick;				/* 깨어나야할 tick 저장 */
@@ -132,6 +140,31 @@ struct thread {
 	bool process_exit_flag;		 		/* ???프로세스의 종료유무 확인*/
 
 
+
+	/* Project 1 - Priority Scheduling */
+	struct lock *wait_on_lock; // 해당 스레드가 대기 하고 있는 lock자료구조의 주소를 저장
+	struct list donations; // multiple donation 을 고려하기 위해 사용
+	struct list_elem donation_elem; // multiple donation을 고려하기 위해 사용
+	
+	/* Project 1 - MLFQS */
+	int nice;
+	int recent_cpu;
+	struct list_elem all_elem;
+
+	/* Project 2 - Syscall (fork, wait) */
+	struct thread *parent_thread; /* 부모 스레드 */
+	struct list_elem child_elem; /* 자식 리스트 element */
+	struct list childs;			 /* 자식 리스트 */
+	struct semaphore wait_sema; /* wait 세마포어 */
+	struct semaphore fork_sema;  /* fork 세마포어 */
+	struct semaphore free_sema;  /* free 세마포어 */
+	int exit_status; /* exit 호출 시 종료 status */
+
+	/* Project 2 - Syscall (file 관련) */
+	int fd;
+	struct file **fd_table;
+	struct intr_frame parent_if;
+	struct file *running;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -181,23 +214,25 @@ int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
 
-void thread_sleep(int64_t ticks);				/* 실행 중인 스레드를 슬립으로 만듦 */
-void thread_awake(int64_t ticks);				/* 슬립큐에서 깨워야 할 스레드를 깨움*/
-void update_next_tick_to_awake(int64_t ticks);  /* 최소 틱을 가진 스레드 저장 */
-int64_t get_next_tick_to_awake(void);			/* thread.c의 next_tick_to_awake를 반환 */
+/* Project 1 - Alarm Clock */
+void thread_sleep(int64_t ticks); // 실행중인 스레드를 슬립으로 만듬
+void thread_awake(int64_t ticks); // 슬립큐를 순회하면서 깨워야할 스레드를 깨움
+void update_next_tick_to_awake(int64_t ticks); // next_tick_to_awake를 최소값으로 업데이트
+int64_t get_next_tick_to_awake(void); // thread.c의 next_tick_to_awake 반환
 
-/* 현재 수행중인 스레드와 가장높은 우선순위의 스레드의 우선순위를 비교하여 스케줄링*/
-void test_max_priority(void);	
-/* 인자로 주어진 스레드들의 우선순위를 비교*/
-bool cmp_priority(const struct list_elem *a,const struct list_elem *b,void *aux UNUSED);
-/* 첫번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 두번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 비교 */
-bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
-/* 첫번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 두번째 인자로 주어진 세마포어를 위해 대기 중인 가장 높은 우선순위의 스레드와 비교 */
-bool cmp_dom_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
-
-/* Priority Donation 함수 */
+/* Project 1 - Priority Scheduling */
+void test_max_priority(void); // 현재 수행중인 스레드와 가장 높은 우선순위의 스레드의 우선순위를 비교하여 스케줄링 */
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED); // 인자로 주어진 스레드들의 우선순위를 비교 
 void donate_priority(void);
-void remove_with_lock(struct lock *lock); 
+void remove_with_lock(struct lock *lock);
 void refresh_priority(void);
 
+/* Project 1 - MLFQS */
+void mlfqs_priority (struct thread *t);
+void mlfqs_recent_cpu (struct thread *t);
+void mlfqs_load_avg (void);
+void mlfqs_increment (void);
+void mlfqs_recalc (void);
+
 #endif /* threads/thread.h */
+
