@@ -120,7 +120,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	}
 
 // 시스템 콜의 함수의 리턴 값은 인터럽트 프레임의 eax에 저장
-	// printf ("system call!\n");
 	// thread_exit ();
 }
 
