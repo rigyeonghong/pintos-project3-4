@@ -105,20 +105,27 @@ initd (void *f_name) {
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
+	// printf("----------process_fork 시작---------\n");
 	struct thread *parent_thread = thread_current();
 	memcpy(&parent_thread->parent_if, if_, sizeof(struct intr_frame)); // kernel stack에 있는 intr_frame을 부모 스레드의 intr_frame에 복사
-
+	// printf("----------process_fork : memcpy---------\n");
 	tid_t new_tid = thread_create (name, PRI_DEFAULT, __do_fork, parent_thread); // 새로운 스레드 생성
+	// printf("----------process_fork : thread_create---------\n");
 
 	if (new_tid == TID_ERROR) {
+		// printf("----------process_fork : tid error---------\n");
 		return TID_ERROR;
 	}
 
 	struct thread *child_thread = get_child_process(new_tid);
+	// printf("----------process_fork : get_child---------\n");
 	sema_down(&child_thread->fork_sema);
+	// printf("----------process_fork : fork sema down---------\n");
 	if (child_thread->exit_status == -1) {
+		// printf("----------process_fork : tid error---------\n");
 		return TID_ERROR;
 	}
+	// printf("----------process_fork 끝---------\n");
 	return new_tid;
 }
 
@@ -185,7 +192,7 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	bool succ = true;
 
 	/* 1. Read the cpu context to local stack. */
-	memcpy (&if_, parent_if, sizeof (struct intr_frame)); 
+	memcpy (&if_, parent_if, sizeof (struct intr_frame));
 
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
@@ -196,9 +203,10 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 
 #ifdef VM
 	supplemental_page_table_init (&current->spt);
-	if (!supplemental_page_table_copy (&current->spt, &parent->spt))
+	if (!supplemental_page_table_copy (&current->spt, &parent->spt)){
 		goto error;
-	
+	}
+
 #else
 	if (!pml4_for_each (parent->pml4, duplicate_pte, parent)){
 		goto error;
@@ -212,7 +220,9 @@ __do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하�
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
-	for(int i = 2; i < FDCOUNT_LIMIT; i++) {
+	//printf("[1]\n");
+	for (int i = 2; i < FDCOUNT_LIMIT; i++)
+	{
 		struct file *fd = parent->fd_table[i];
 		if (fd == NULL) {
 			continue;
@@ -801,7 +811,7 @@ static bool
 setup_stack (struct intr_frame *if_) {
 	uint8_t *kpage;
 	bool success = false;
-
+	//printf("----------setup_stack 시작---------\n");
 	kpage = palloc_get_page (PAL_USER | PAL_ZERO);
 	if (kpage != NULL) {
 		success = install_page (((uint8_t *) USER_STACK) - PGSIZE, kpage, true);
@@ -810,6 +820,7 @@ setup_stack (struct intr_frame *if_) {
 		else
 			palloc_free_page (kpage);
 	}
+	//printf("----------setup_stack 끝---------\n");
 	return success;
 }
 
@@ -836,7 +847,7 @@ install_page (void *upage, void *kpage, bool writable) {
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
-static bool
+bool
 lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
@@ -854,7 +865,6 @@ lazy_load_segment (struct page *page, void *aux) {
 	}
 
 	memset(page->frame->kva + aux_file_info->read_bytes, 0, aux_file_info->zero_bytes);
-
 	return true;
 }
 
@@ -926,7 +936,8 @@ setup_stack (struct intr_frame *if_) {
 				success = true;
 			}
 		}
-	//struct page *temp = spt_find_page(&thread_current()->spt, stack_bottom); // 디버깅시 확인했던 
+	struct page *temp = spt_find_page(&thread_current()->spt, stack_bottom);
+
 	return success;
 }
 #endif /* VM */

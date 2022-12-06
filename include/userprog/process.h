@@ -19,5 +19,6 @@ struct file *process_get_file(int fd);
 struct thread *get_child_process(int pid);
 
 void argument_stack(char **argv, int argc, struct intr_frame *if_);
+bool lazy_load_segment(struct page *page, void *aux);
 
 #endif /* userprog/process.h */

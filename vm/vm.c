@@ -6,6 +6,8 @@
 #include "vm/uninit.h"
 #include "threads/mmu.h"
 
+#include "userprog/process.h"
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void vm_init(void)
@@ -196,12 +198,6 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
 
-	//printf("VM_TRY_HANDLE_FAULT: %p\n", addr);
-	// printf("[vm_try_handle_fault] user: %d\n", user);
-	// printf("[vm_try_handle_fault] write: %d\n", write);
-	// printf("[vm_try_handle_fault] not_present: %d\n", not_present);
-	// printf("[vm_try_handle_fault] tid: %d\n", thread_current()->tid);
-
 	// if (not_present || write || user)
 	// { //  유효하지 않은 접근일 때
 	// 	// [3-2??] spt_find_page(spt, addr)가 null로 반환하는 경우도 생각해야할까?
@@ -212,8 +208,12 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	/* lazy loading 으로 인한 page fault */
 	page = spt_find_page(spt, addr);
+	//printf("-----vm_try_handle_fault: spt_find_page--------\n");
 
-	return vm_do_claim_page(page);
+	bool doclaim_r = vm_do_claim_page(page);
+	//printf("-----vm_try_handle_fault: vm_do_claim_page--------\n");
+
+	return doclaim_r;
 }
 
 /* Free the page.
@@ -242,7 +242,6 @@ bool vm_do_claim_page(struct page *page)
 {
 	struct frame *frame = vm_get_frame();
 	int result = false;
-
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
@@ -279,15 +278,48 @@ static bool spt_less_func(const struct hash_elem *a, const struct hash_elem *b, 
 	return ap->va < bp->va;
 }
 
+/* Project 3-2 Anonymous Page */
+/* src에서 dst로 spt를 복사하는 함수
+자식이 부모의 execution context를 복사해야 할 때 사용됨 (i.e. fork())
+src의 spt에 있는 각 페이지를 순회하면서 각 엔트리와 똑같은 복사본을 dst의 spt에 만든다.
+uninit page를 할당하고 즉시 claim 해야함 */
 /* Copy supplemental page table from src to dst */
-bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
-								  struct supplemental_page_table *src UNUSED)
+bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, struct supplemental_page_table *src UNUSED)
 {
+	hash_apply(&src->spt_hash, supplemental_copy_entry);
+
+	return true;
 }
 
+void supplemental_copy_entry(struct hash_elem *e, void *aux){
+
+	struct page *p = hash_entry(e, struct page, h_elem);
+	if (p->operations->type == VM_UNINIT){
+		vm_alloc_page_with_initializer(p->uninit.type, p->va, 1, lazy_load_segment, NULL);
+		vm_claim_page(p->va);
+
+		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
+	}
+	else{
+		vm_alloc_page(p->operations->type, p->va, 1);
+		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
+		
+		vm_claim_page(p->va);
+	}
+	
+}
+
+/* Project 3-2 Anonymous Page */
 /* Free the resource hold by the supplemental page table */
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+	hash_apply(&spt->spt_hash, supplemental_destroy_entry);
+}
+
+void supplemental_destroy_entry(struct hash_elem *e, void *aux)
+{
+	struct page *p = hash_entry(e, struct page, h_elem);
+	destroy(p);
 }

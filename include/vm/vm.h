@@ -132,4 +132,6 @@ static struct frame *vm_get_victim(void);
 bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
 
+void supplemental_copy_entry(struct hash_elem *e, void *aux);
+void supplemental_destroy_entry(struct hash_elem *e, void *aux);
 #endif /* VM_VM_H */
