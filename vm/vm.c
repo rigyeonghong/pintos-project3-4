@@ -382,32 +382,17 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, st
 void supplemental_copy_entry(struct hash_elem *e, void *aux){
 
 	struct page *p = hash_entry(e, struct page, h_elem);
-	//printf("---------spt_entry---------\n");
 	if (p->operations->type == VM_UNINIT){
-		//printf("---------spt_entry: VM_UNINIT---------\n");
 		vm_alloc_page_with_initializer(p->uninit.type, p->va, 1, lazy_load_segment, NULL);
 		vm_claim_page(p->va);
 
 		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
-		printf("[spt entry] p kva: %p\n", p->frame->kva);
-		printf("[spt entry] p va: %p\n", p->frame->page->va);
-		printf("[spt entry] child_p kva: %p\n", child_p->frame->kva);
-		printf("[spt entry] child_p va: %p\n", child_p->frame->page->va);
-		printf("child_p page: %p\n", pml4_get_page(thread_current()->pml4, p->va));
 	}
 	else{
-		//printf("---------spt_entry: VM_ANON---------\n");
 		vm_alloc_page(p->operations->type, p->va, 1);
 		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
 		
 		vm_claim_page(p->va);
-		// printf("[spt entry] p kva: %p\n", p->frame->kva);
-		// printf("[spt entry] p va: %p\n", p->frame->page->va);
-		// printf("[spt entry] child_p kva: %p\n", child_p->frame->kva);
-		// printf("[spt entry] child_p va: %p\n", child_p->frame->page->va);
-		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);
-		//printf("parent_p content: %s\n", p->frame->kva);
-		// printf("child_p page: %p\n", pml4_get_page(thread_current()->pml4, p->va));
 	}
 	
 }
