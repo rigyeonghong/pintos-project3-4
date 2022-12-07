@@ -109,6 +109,7 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	struct thread *parent_thread = thread_current();
 	memcpy(&parent_thread->parent_if, if_, sizeof(struct intr_frame)); // kernel stack에 있는 intr_frame을 부모 스레드의 intr_frame에 복사
 	// printf("----------process_fork : memcpy---------\n");
+	//hex_dump(if_->rsp, if_->rsp, USER_STACK - if_->rsp, true);
 	tid_t new_tid = thread_create (name, PRI_DEFAULT, __do_fork, parent_thread); // 새로운 스레드 생성
 	// printf("----------process_fork : thread_create---------\n");
 
@@ -271,21 +272,17 @@ process_exec (void *f_name) {
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
-
 	/* We first kill the current context */
 	process_cleanup ();
-	
-	//Argument parsing (커맨드 라인 Parsing 하여 인자 확인)
-
+	supplemental_page_table_init(&thread_current()->spt);
 	/* And then load the binary */
-	// file_name : 프로그램(실행파일) 이름
 
 	success = load (file_name, &_if);
-
-	//hex_dump(_if.rsp,_if.rsp, USER_STACK - _if.rsp,true);
+	// hex_dump(_if.rsp,_if.rsp, USER_STACK - _if.rsp,true);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
+
 	if (!success)
 		return -1; 
 
@@ -489,6 +486,7 @@ load(const char *file_name, struct intr_frame *if_)
 	t->pml4 = pml4_create();
 	if (t->pml4 == NULL)
 		goto done;
+
 	process_activate(t);
 
 	/* 락 획득 */
@@ -508,6 +506,7 @@ load(const char *file_name, struct intr_frame *if_)
 	t->running = file;
 	/* file_deny_write()를 이용하여 파일에 대한 write를 거부 */
 	file_deny_write(file);
+	
 	/* 락 해제 */
 	// lock_release(&file_lock);
 
@@ -603,6 +602,7 @@ load(const char *file_name, struct intr_frame *if_)
 done:
 	/* We arrive here whether the load is successful or not. */
 	// file_close(file); // file 닫히면서 lock이 풀림
+				
 	return success;
 }
 
@@ -811,7 +811,6 @@ static bool
 setup_stack (struct intr_frame *if_) {
 	uint8_t *kpage;
 	bool success = false;
-	//printf("----------setup_stack 시작---------\n");
 	kpage = palloc_get_page (PAL_USER | PAL_ZERO);
 	if (kpage != NULL) {
 		success = install_page (((uint8_t *) USER_STACK) - PGSIZE, kpage, true);
@@ -820,7 +819,6 @@ setup_stack (struct intr_frame *if_) {
 		else
 			palloc_free_page (kpage);
 	}
-	//printf("----------setup_stack 끝---------\n");
 	return success;
 }
 
@@ -833,7 +831,7 @@ setup_stack (struct intr_frame *if_) {
  * with palloc_get_page().
  * Returns true on success, false if UPAGE is already mapped or
  * if memory allocation fails. */
-static bool
+bool
 install_page (void *upage, void *kpage, bool writable) {
 	struct thread *t = thread_current ();
 
@@ -852,8 +850,6 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
-	// if (vm_do_claim_page(page) == false)
-	// 	return false;
 
 	struct file_info *aux_file_info = (struct file_info *)aux;
 
@@ -905,8 +901,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		aux_file_info->zero_bytes = zero_bytes;
 
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
-					writable, lazy_load_segment, (void*) aux_file_info))
+					writable, lazy_load_segment, (void*) aux_file_info)){
 			return false;
+		}
     
 		/* Advance. */
 		read_bytes -= page_read_bytes;
@@ -937,8 +934,17 @@ setup_stack (struct intr_frame *if_) {
 			}
 		}
 	struct page *temp = spt_find_page(&thread_current()->spt, stack_bottom);
-
 	return success;
+}
+
+bool
+install_page(void *upage, void *kpage, bool writable)
+{
+	struct thread *t = thread_current();
+
+	/* Verify that there's not already a page at that virtual
+	 * address, then map our page there. */
+	return (pml4_get_page(t->pml4, upage) == NULL && pml4_set_page(t->pml4, upage, kpage, writable));
 }
 #endif /* VM */
 

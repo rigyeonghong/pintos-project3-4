@@ -53,9 +53,7 @@ uninit_initialize(struct page *page, void *kva)
 	
 	/* TODO: You may need to fix this function. */
 	bool page_initialize_r = uninit->page_initializer(page, uninit->type, kva);
-	//printf("uninit_swap_in: page_initialize success\n");
 	bool init_r = (init ? init(page, aux) : true);
-	// printf("===========uninit_swap_in: end=============\n");
 	return page_initialize_r && init_r;
 }
 
@@ -73,6 +71,5 @@ uninit_destroy(struct page *page)
 
 	/* TODO: Fill this function.
 	 * TODO: If you don't have anything to do, just return. */
-	palloc_free_page(page->frame->kva);
 	//[3-2] va 관련,,?
 }

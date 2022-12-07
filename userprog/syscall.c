@@ -124,7 +124,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 }
 
 void check_address(void *addr) {
-	if((!is_user_vaddr(addr)) || (pml4_get_page(thread_current()->pml4, addr)) == NULL||(addr == NULL)){	
+	if((!is_user_vaddr(addr)) || spt_find_page(&thread_current()->spt, addr) == NULL || (addr == NULL)){	
 		exit(-1);
 	}
 
@@ -210,7 +210,6 @@ int read (int fd, void *buffer, unsigned size){
 			key_length++;
 		}
 	}
-	
 	else if (fd == 1){ // STDOUT 이면 
 		return -1; // 오류 리턴
 	}
