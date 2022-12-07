@@ -71,6 +71,7 @@ struct frame
 	struct page *page;
 };
 
+
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
  * Put the table of "method" into the struct's member, and
