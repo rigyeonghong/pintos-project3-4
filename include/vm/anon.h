@@ -5,8 +5,6 @@ struct page;
 enum vm_type;
 
 struct anon_page {
-
-    enum vm_type type;
     void *aux;
 };
 

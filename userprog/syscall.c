@@ -35,6 +35,8 @@ void close (int fd); // 열린 파일을 닫음
 int fork (const char *thread_name, struct intr_frame *f);
 int exec (const char *cmd_line);
 int wait (int pid);
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap(void *addr);
 
 /* System call.
  *
@@ -49,8 +51,7 @@ int wait (int pid);
 #define MSR_LSTAR 0xc0000082        /* Long mode SYSCALL target */
 #define MSR_SYSCALL_MASK 0xc0000084 /* Mask for the eflags */
 
-void
-syscall_init (void) {
+	void syscall_init(void) {
 	write_msr(MSR_STAR, ((uint64_t)SEL_UCSEG - 0x10) << 48  |
 			((uint64_t)SEL_KCSEG) << 32);
 	write_msr(MSR_LSTAR, (uint64_t) syscall_entry);
@@ -67,6 +68,8 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 // TODO: Your implementation goes here.
+
+	thread_current()->rsp = f->rsp;
 	
 	int syscall_number = f->R.rax;
 	switch (syscall_number){
@@ -114,6 +117,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CLOSE:
 			close(f->R.rdi);
 			break;	
+		case SYS_MMAP:
+			f->R.rax = mmap(f->R.rdi, f->R.rsi, f->R.rdx, f->R.r10, f->R.r8);
+			break;
+		case SYS_MUNMAP:
+			munmap(f->R.rdi);
+			break;
 		default:
 			exit(-1);
 			break;
@@ -127,7 +136,6 @@ void check_address(void *addr) {
 	if((!is_user_vaddr(addr)) || spt_find_page(&thread_current()->spt, addr) == NULL || (addr == NULL)){	
 		exit(-1);
 	}
-
 /* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
 /* 잘못된 접근일 경우 프로세스 종료 */
 }
@@ -224,6 +232,9 @@ int read (int fd, void *buffer, unsigned size){
 int write (int fd, const void *buffer, unsigned size){
 	check_address(buffer); // 버퍼 유효주소 확인
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
+	if ( get_file->writable == 0) {
+		exit(-1);
+	}
 	int key_length;
 	if (get_file == NULL){
 		return -1;
@@ -272,8 +283,8 @@ unsigned tell (int fd){
 void close (int fd){
 	if (fd < 2){
 		return;
-	} 
-	struct thread* cur_thread = thread_current();
+	}
+	struct thread *cur_thread = thread_current();
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
 	if (get_file == NULL){
 		return;
@@ -305,3 +316,42 @@ int exec (const char *cmd_line){
 int wait (int pid){
 	return process_wait(pid);
 }
+
+void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
+{
+	/*
+	1) fd로 열린 파일의 길이가 0인 경우
+	2) addr이 0인 경우
+	3) length가 0인 경우
+	4) fd=0 or fd=1 (stdin, stdout)
+	5) addr이 page-aligned 하지 않은 경우
+	6) 매핑된 페이지 영역이 기존의 매핑된 페이지 집합과 겹치는 경우
+	*/
+	// printf("fd: %d\n", fd);
+	// printf("filesize: %d\n", filesize(fd));
+	// printf("addr: %p\n", addr);
+	// printf("pgrounddown: %p\n", pg_round_down(addr));
+	// printf("length: %d\n", length);
+	// printf("find_page: %d\n", spt_find_page(&thread_current()->spt, addr));
+	size_t file_size = filesize(fd);
+
+	if ((fd != 0) && (fd != 1) && (file_size!= 0) && (addr != 0) && (length != 0) && (addr == pg_round_down(addr)) && (spt_find_page(&thread_current()->spt, addr) == NULL))
+	{
+		// printf("mmap 하자!\n");
+		struct file *map_file = file_reopen(process_get_file(fd));
+		void *mmap_addr = do_mmap(addr, file_size, writable, map_file, offset); // file size 수정
+		// printf("mmap addr: %p\n", mmap_addr);
+		return mmap_addr;
+	}
+	return NULL;
+}
+
+void munmap(void *addr)
+{
+	// [TBD] dirty 한지 확인
+	if (spt_find_page(&thread_current()->spt, addr) != NULL){
+		// printf("문맵~2\n");
+		do_munmap(addr);
+	}
+}
+

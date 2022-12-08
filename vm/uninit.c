@@ -53,7 +53,9 @@ uninit_initialize(struct page *page, void *kva)
 	
 	/* TODO: You may need to fix this function. */
 	bool page_initialize_r = uninit->page_initializer(page, uninit->type, kva);
+	// printf("page: %d\n", page_initialize_r);
 	bool init_r = (init ? init(page, aux) : true);
+	// printf("init: %d\n", init_r);
 	return page_initialize_r && init_r;
 }
 

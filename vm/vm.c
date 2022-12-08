@@ -120,8 +120,8 @@ bool spt_insert_page(struct supplemental_page_table *spt,
 
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 {
+	hash_delete(&spt->spt_hash, &page->h_elem);
 	vm_dealloc_page(page);
-	return true;
 }
 
 /* Get the struct frame, that will be evicted. */
@@ -178,28 +178,9 @@ vm_get_frame(void)
 
 /* Growing the stack. */
 static void
-vm_stack_growth(void *addr UNUSED, uintptr_t rsp)
+vm_stack_growth(void *addr UNUSED)
 {
-	printf("rsp: %p\n", rsp);
-	printf("round down rsp: %p\n", pg_round_up((void *)rsp));
-	printf("fault addr: %p\n", addr);
-
-	int growth_size = (int)(pg_round_up((void *)rsp) - pg_round_down(addr));
-	printf("growth_size: %d\n", growth_size);
-	int page_num = growth_size / PGSIZE;
-	printf("page_num: %d\n", page_num);
-	void *stack_bottom = (uint8_t *)pg_round_down(addr);
-	printf("for 이전, stack_bottom: %p\n", stack_bottom);
-	for (int i = 0; i <= page_num; i++)
-	{
-		stack_bottom -= (i*PGSIZE);
-		printf("for 내부, stack_bottom: %p\n", stack_bottom);
-		vm_alloc_page(VM_ANON, stack_bottom, 1);
-		spt_find_page(thread_current()->spt, addr);
-		printf("stack page alloc 완!\n");
-		vm_claim_page(stack_bottom);
-		printf("stack frame alloc 완!\n");
-	}
+	vm_alloc_page(VM_ANON, addr, 1);
 }
 
 /* Handle the fault on write_protected page */
@@ -219,6 +200,12 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
 
+	if ((!is_user_vaddr(addr)) || (addr == NULL))
+	{
+		exit(-1);
+	}
+	// printf("=======page fault, addr: %p=======\n", addr);
+
 	/* STACK GROWTH */
 	void * rsp;
 	if (user == 1)
@@ -226,27 +213,54 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	else
 		rsp = (void *)thread_current()->rsp;
 
-	if (rsp-8 <= addr)
-	{
-		if (((uint8_t *)USER_STACK - (uint8_t *)pg_round_down(addr)) <= MAXSTACK)
-		{
-			printf("스택아 자라라\n");
-			vm_stack_growth(addr, rsp);
-			printf("스택 자랐당\n");
-			// return true;
-		}
-		else{
-			//swap out 예정
-		}
-		return true;
+	if ((rsp-8 <= addr) && (addr <= USER_STACK) && (addr >= (USER_STACK - MAXSTACK))) {
+		// printf("스택아 자라라\n");
+		vm_stack_growth(pg_round_down(addr));
+		// printf("스택 자랐당\n");
 	}
-	check_address(addr);
-		/* lazy loading 으로 인한 page fault */
-	printf("지연로딩 시작!\n");
+
+	// printf("rsp: %p\n", rsp);
+	// printf("round down rsp: %p\n", pg_round_down((void *)rsp));
+	// printf("fault addr: %p\n",addr);
+
+	// if (rsp-8 <= addr)
+	// {
+	// 	if (((uint8_t *)USER_STACK - (uint8_t *)pg_round_down(addr)) <= MAXSTACK)
+	// 	{
+	// 		
+	// 		vm_stack_growth(addr, rsp);
+	// 		
+	// 		// return true;
+	// 	}
+	// 	else{
+	// 		//swap out 예정
+	// 	}
+	// 	return true;
+	// }
+	if (spt_find_page(&thread_current()->spt, addr) == NULL){
+		// printf("페이지 어딧지 \n");
+		exit(-1);
+
+	}
+	/* lazy loading 으로 인한 page fault */
+	// printf("지연로딩 시작!\n");
 	doclaim_r = vm_claim_page(addr);
-	printf("doclaim: %d\n", doclaim_r);
-	printf("지연로딩 끝!!\n");
+	// printf("doclaim: %d\n", doclaim_r);
+	// printf("지연로딩 끝!!\n");
+
 	return doclaim_r;
+	
+	// printf("[vm_try_handle_fault] user: %d\n", user);
+	//printf("[vm_try_handle_fault] write: %d\n", write);
+	//printf("[vm_try_handle_fault] not_present: %d\n", not_present);
+	// printf("[vm_try_handle_fault] tid: %d\n", thread_current()->tid);
+	// if (not_present || write || user)
+	// { //  유효하지 않은 접근일 때
+	// 	// [3-2??] spt_find_page(spt, addr)가 null로 반환하는 경우도 생각해야할까?
+	// 	page = spt_find_page(spt, addr);
+	// 	// [3-2??] 해당 자원 해제?
+	// 	exit(-1);
+	// }
 
 }
 
@@ -289,6 +303,7 @@ bool vm_do_claim_page(struct page *page)
 	}
 
 	result = swap_in(page, frame->kva);
+	// printf("[vm_do_claim_page] swap in 성공 \n");
 	return result;
 }
 
@@ -329,16 +344,27 @@ void supplemental_copy_entry(struct hash_elem *e, void *aux){
 	if (p->operations->type == VM_UNINIT){
 		vm_alloc_page_with_initializer(p->uninit.type, p->va, 1, lazy_load_segment, p->uninit.aux);
 	}
-	else{
-		vm_alloc_page(p->operations->type, p->va, 1);
+	else if (p->operations->type == VM_ANON) {
+		vm_alloc_page(VM_ANON, p->va, 1);
 		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
 		
 		vm_claim_page(p->va);
 
 		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);
-
+		//printf("parent_p content: %s\n", p->frame->kva);
+		//printf("child_p page: %p\n", pml4_get_page(thread_current()->pml4, p->va));
+		
 	}
-	
+	else if (p->operations->type == VM_FILE){
+		struct file_info *temp = p->file.aux;
+		vm_alloc_page(VM_FILE, p->va, temp->writable);
+		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
+		vm_claim_page(p->va);
+		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);
+	}
+	else {
+		printf("유효하지 않은 페이지 타입!\n");
+	}
 }
 
 /* Project 3-2 Anonymous Page */
