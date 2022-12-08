@@ -35,6 +35,10 @@ typedef int tid_t;
 #define FDT_PAGES 3
 #define FDCOUNT_LIMIT FDT_PAGES *(1<<9) // limit fd
 
+/* Project 2 */
+#define FDT_PAGES 3					  		// pages to allocate for file descriptor tables (thread_create, process_exit)
+#define FDCOUNT_LIMIT FDT_PAGES *(1 << 9) 	// Limit fd_idx
+
 /* A kernel thread or user process.
  *
  * Each thread structure is stored in its own 4 kB page.  The
@@ -103,6 +107,39 @@ struct thread {
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+	int64_t wakeup_tick;				/* 깨어나야할 tick 저장 */
+
+	/* prioriry donation 관련 항목 */
+	int init_priority;                  /* donation 이후 우선순위를 초기화하기 위해 초기값 저장 */
+	struct lock *wait_on_lock;			/* 해당 스레드가 대기 하고 있는 lock자료구조의 주소를 저장 */
+	struct list donations;				/* multiple donation 을 고려하기 위해 사용 */		 
+	struct list_elem donation_elem;	    /* multiple donation 을 고려하기 위해 사용 */
+
+
+	/* Project 2 open function */
+	struct file **fdt;
+	int fd_idx;
+
+	/* Project 2 exit function */
+
+	/* Project 2 fork()*/
+	struct intr_frame parent_if;        /* __do_fork()실행을 위해 유저 스택의 정보를 넘겨주기 위한 인터럽트 프레임 */
+	struct list_elem child_elem;	    /* 자식리스트 element */
+	struct list child_list;				/* 자식리스트 */
+	struct semaphore sema_fork;
+	bool is_waited_flag;		 		/* ???프로세스의 종료유무 확인*/
+	int process_exit_status;		 	/* ???exit 호출 시 종료 status*/
+	struct semaphore sema_wait;			/* wait 세마포어*/
+	struct semaphore sema_free;			/* load 세마포어*/
+
+	/* Project 2-4 file_deny_write */
+	struct file *running_file;
+
+	/* (한양대)필요 없음 */
+	bool process_load_flag;				/* ???프로세스의 프로그램 메모리 적재유무확인 */
+	bool process_exit_flag;		 		/* ???프로세스의 종료유무 확인*/
+
+
 
 	/* Project 1 - Priority Scheduling */
 	struct lock *wait_on_lock; // 해당 스레드가 대기 하고 있는 lock자료구조의 주소를 저장
