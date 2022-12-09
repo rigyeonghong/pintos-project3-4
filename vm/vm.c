@@ -92,23 +92,17 @@ spt_find_page(struct supplemental_page_table *spt, void *va)
 
 	/* TODO: Fill this function. */
 	// [3-1?] 우리가 원하는 va에 해당하는 페이지를 찾기 위해 가짜 페이지 할당
-	// printf("----va: %p-----\n", va);
 	struct page *temp = palloc_get_page(PAL_USER);
 	temp->va = pg_round_down(va);
-	// printf("----temp->va: %p-----\n", temp->va);
 	// 가짜 페이지와 같은 hash를 가지는 페이지를 찾아옴
 	struct hash_elem *va_hash_elem = hash_find(&spt->spt_hash, &temp->h_elem);
-	// printf("----hash_elem: %p-----\n", va_hash_elem);
 	// 가짜 페이지 메모리 해제
 	palloc_free_page(temp);
 
 	if (va_hash_elem != NULL)
 	{
-		// printf("----hash elem 찾음!----\n");
 		page = hash_entry(va_hash_elem, struct page, h_elem);
-		// printf("찾은 페이지 va : %p\n", page->va);
 	}
-	// printf("----page 찾음!----\n");
 	return page;
 }
 
@@ -156,6 +150,9 @@ vm_evict_frame(void)
  * and return it. This always return valid address. That is, if the user pool
  * memory is full, this function evicts the frame to get the available memory
  * space.*/
+/* palloc()하고 frame을 얻음. 사용 가능한 페이지가 없는 경우 페이지를 삭제하고 반환 
+   항상 유효한 주소를 반환. 
+   즉, user pool 메모리가 가득 차면 이 기능은 사용 가능한 메모리 공간을 얻기 위해 프레임을 제거 */
 static struct frame *
 vm_get_frame(void)
 {
@@ -214,7 +211,6 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	{
 		exit(-1);
 	}
-	
 	/* STACK GROWTH */
 	void * rsp;
 	if (user == 1)
@@ -249,12 +245,10 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	if (spt_find_page(&thread_current()->spt, addr) == NULL){
 		// printf("페이지 어딧지 \n");
 		exit(-1);
+
 	}
 	/* lazy loading 으로 인한 page fault */
-	// printf("지연로딩 시작!\n");
 	doclaim_r = vm_claim_page(addr);
-	// printf("doclaim: %d\n", doclaim_r);
-	// printf("지연로딩 끝!!\n");
 
 	return doclaim_r;
 	
@@ -265,6 +259,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	// 	// [3-2??] 해당 자원 해제?
 	// 	exit(-1);
 	// }
+
 }
 
 /* Free the page.
@@ -294,13 +289,10 @@ bool vm_do_claim_page(struct page *page)
 	int result = false;
 	struct thread *t = thread_current();
 	bool writable;
-	// printf("===========vm_do_claim_page: start=============\n");
-	// printf("[vm_do_claim_page] tid: %d\n", thread_current()->tid);
 
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
-	// printf("type: %d\n", page->operations->type);
 
 	// struct uninit_page *uninit = &page->uninit;
 	// void *aux = uninit->aux;
@@ -318,17 +310,12 @@ bool vm_do_claim_page(struct page *page)
 
 	if (!install_page(page->va, frame->kva, 1))
 	{
-		// printf("실 패!\n");
 		return false;
 	}
-	// printf("pte: %p\n", *( (uint64_t *) page->va));
-	// printf("[vm_do_claim_page] set_page 성공 \n");
 
 	result = swap_in(page, frame->kva);
-	// printf("[vm_do_claim_page] swap in 성공 \n");
 	return result;
 }
-
 
 /* Initialize new supplemental page table */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
@@ -365,7 +352,6 @@ void supplemental_copy_entry(struct hash_elem *e, void *aux){
 
 	struct page *p = hash_entry(e, struct page, h_elem);
 	if (p->operations->type == VM_UNINIT){
-		// printf("[spt entry] : uninit p kva: %p", p->frame->kva);
 		vm_alloc_page_with_initializer(p->uninit.type, p->va, 1, lazy_load_segment, p->uninit.aux);
 	}
 	else if (p->operations->type == VM_ANON) {
@@ -373,27 +359,15 @@ void supplemental_copy_entry(struct hash_elem *e, void *aux){
 		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
 		
 		vm_claim_page(p->va);
-		// printf("[spt entry] p kva: %p\n", p->frame->kva);
-		// printf("[spt entry] p va: %p\n", p->frame->page->va);
-		// printf("[spt entry] child_p kva: %p\n", child_p->frame->kva);
-		// printf("[spt entry] child_p va: %p\n", child_p->frame->page->va);
+
 		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);
-		//printf("parent_p content: %s\n", p->frame->kva);
-		//printf("child_p page: %p\n", pml4_get_page(thread_current()->pml4, p->va));
 		
 	}
 	else if (p->operations->type == VM_FILE){
-		// printf("[spt entry] : VM_FILE p kva: %p\n", p->frame->kva);
-		// printf("[spt entry] : VM_FILE p aux: %p\n", aux);
-		// struct file_info *temp = p->file.aux;
 		vm_alloc_page(VM_FILE, p->va, 1);
-		// printf("[1]\n");
 		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
-		// printf("[2]\n");
 		vm_claim_page(p->va);
-		// printf("[3]\n");
 		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);
-		// printf("[4]\n");
 	}
 	else {
 		printf("유효하지 않은 페이지 타입!\n");
