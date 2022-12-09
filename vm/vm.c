@@ -62,6 +62,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		} //[3-1?] ??
 		else if (type == VM_FILE)
 		{
+			// printf("aux: %p\n", aux);
 			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
 		}
 		// else if (type == VM_MARKER_0){
@@ -69,7 +70,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		// }
 		else
 		{
-			uninit_new(new_page, upage, init, type, aux, NULL);
+			// uninit_new(new_page, upage, init, type, aux, NULL);
 			goto err;
 		}
 		/* TODO: Insert the page into the spt. */
@@ -199,13 +200,17 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	// uint8_t fault_addr = (uint8_t)addr;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+	// printf("=======page fault, addr: %p=======\n", addr);
 
+	// printf("=======page fault, addr: %p=======\n", addr);
+	// printf("[vm_try_handle_fault] user: %d\n", user);
+	// printf("[vm_try_handle_fault] write: %d\n", write);
+	// printf("[vm_try_handle_fault] not_present: %d\n", not_present);
+	// printf("[vm_try_handle_fault] tid: %d\n", thread_current()->tid);
 	if ((!is_user_vaddr(addr)) || (addr == NULL))
 	{
 		exit(-1);
 	}
-	// printf("=======page fault, addr: %p=======\n", addr);
-
 	/* STACK GROWTH */
 	void * rsp;
 	if (user == 1)
@@ -243,17 +248,10 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	}
 	/* lazy loading 으로 인한 page fault */
-	// printf("지연로딩 시작!\n");
 	doclaim_r = vm_claim_page(addr);
-	// printf("doclaim: %d\n", doclaim_r);
-	// printf("지연로딩 끝!!\n");
 
 	return doclaim_r;
 	
-	// printf("[vm_try_handle_fault] user: %d\n", user);
-	//printf("[vm_try_handle_fault] write: %d\n", write);
-	//printf("[vm_try_handle_fault] not_present: %d\n", not_present);
-	// printf("[vm_try_handle_fault] tid: %d\n", thread_current()->tid);
 	// if (not_present || write || user)
 	// { //  유효하지 않은 접근일 때
 	// 	// [3-2??] spt_find_page(spt, addr)가 null로 반환하는 경우도 생각해야할까?
@@ -290,20 +288,32 @@ bool vm_do_claim_page(struct page *page)
 	struct frame *frame = vm_get_frame();
 	int result = false;
 	struct thread *t = thread_current();
-  
+	bool writable;
+
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
+	// struct uninit_page *uninit = &page->uninit;
+	// void *aux = uninit->aux;
+	// if (uninit->type == VM_FILE){
+	// 	struct file_info *aux_file_info = (struct file_info *)aux;
+	// 	printf("[1]")
+	// 	writable = aux_file_info->writable;
+	// 	printf("temp writable: %d\n", aux_file_info->writable);
+	// }
+	// else{
+	// 	writable = 1;
+	// }
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// [3-1?] wr 세팅을 1로 하는게 맞나?
 
-	if (!install_page(page->va, frame->kva, 1)){
+	if (!install_page(page->va, frame->kva, 1))
+	{
 		return false;
 	}
 
 	result = swap_in(page, frame->kva);
-	// printf("[vm_do_claim_page] swap in 성공 \n");
 	return result;
 }
 
@@ -351,13 +361,10 @@ void supplemental_copy_entry(struct hash_elem *e, void *aux){
 		vm_claim_page(p->va);
 
 		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);
-		//printf("parent_p content: %s\n", p->frame->kva);
-		//printf("child_p page: %p\n", pml4_get_page(thread_current()->pml4, p->va));
 		
 	}
 	else if (p->operations->type == VM_FILE){
-		struct file_info *temp = p->file.aux;
-		vm_alloc_page(VM_FILE, p->va, temp->writable);
+		vm_alloc_page(VM_FILE, p->va, 1);
 		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
 		vm_claim_page(p->va);
 		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);

@@ -14,6 +14,9 @@
 #include "lib/string.h"
 #include "threads/palloc.h"
 #include "threads/synch.h"
+#include "threads/mmu.h"
+#include "vm/vm.h"
+#include "threads/vaddr.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -35,8 +38,10 @@ void close (int fd); // 열린 파일을 닫음
 int fork (const char *thread_name, struct intr_frame *f);
 int exec (const char *cmd_line);
 int wait (int pid);
+
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap(void *addr);
+void check_buffer(void *addr);
 
 /* System call.
  *
@@ -140,6 +145,14 @@ void check_address(void *addr) {
 /* 잘못된 접근일 경우 프로세스 종료 */
 }
 
+void check_buffer(void *addr) {
+	if((!is_user_vaddr(addr)) || spt_find_page(&thread_current()->spt, addr) == NULL || (addr == NULL) || is_writable((uint64_t *)addr) == 0){	
+		exit(-1);
+	}
+/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
+/* 잘못된 접근일 경우 프로세스 종료 */
+}
+
 
 void
 halt (void) {
@@ -168,7 +181,11 @@ remove (const char *file) {
 // Parent~child struct 구현 
 
 int open (const char *file){
-	check_address(file); // 파일 유효 주소 확인
+	// check_address(file); // 파일 유효 주소 확인
+	if(file == NULL){
+		exit(-1);
+	}
+	// printf("hi!\n");
 	lock_acquire(&filesys_lock);
 	struct file *open_file = filesys_open(file); // 파일 오픈 및 파일 명 지정
 	if (open_file == NULL){ // 오픈 파일 명 값 확인
@@ -198,7 +215,13 @@ int filesize(int fd){
 }
 
 int read (int fd, void *buffer, unsigned size){
-	check_address(buffer); // 버퍼 유효주소 확인
+
+	// check_address(buffer); // 버퍼 유효주소 확인
+	// if (is_writable((uint64_t *)buffer) == 0)
+	// {
+	// 	exit(-1);
+	// }
+
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
 	int key_length = 0;
 
@@ -230,11 +253,11 @@ int read (int fd, void *buffer, unsigned size){
 }
 
 int write (int fd, const void *buffer, unsigned size){
-	check_address(buffer); // 버퍼 유효주소 확인
+	// check_address(buffer); // 버퍼 유효주소 확인
+	// if (is_writable((uint64_t *)buffer) == 0)
+
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
-	if ( get_file->writable == 0) {
-		exit(-1);
-	}
+
 	int key_length;
 	if (get_file == NULL){
 		return -1;
@@ -332,12 +355,30 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	// printf("addr: %p\n", addr);
 	// printf("pgrounddown: %p\n", pg_round_down(addr));
 	// printf("length: %d\n", length);
+	// printf("length: %d\n", length);
+	// printf("offset: %p", offset);
 	// printf("find_page: %d\n", spt_find_page(&thread_current()->spt, addr));
-	size_t file_size = filesize(fd);
+	if (offset % PGSIZE != 0){
+		return NULL;
+	}
 
-	if ((fd != 0) && (fd != 1) && (file_size!= 0) && (addr != 0) && (length != 0) && (addr == pg_round_down(addr)) && (spt_find_page(&thread_current()->spt, addr) == NULL))
+	if(is_kernel_vaddr((uint64_t)addr))
+	{
+		return NULL;
+	}
+
+	size_t file_size = filesize(fd) < length ? filesize(fd) : length;
+
+	// printf("length: %d\n", length);
+	// printf("filesize: %d\n", file_size);
+	if ((fd != 0) && (fd != 1) && (file_size > 0) && (addr != 0) && ( (long long) length > 0) && (addr == pg_round_down(addr)) && (spt_find_page(&thread_current()->spt, addr) == NULL))
 	{
 		// printf("mmap 하자!\n");
+		// if ((size_t)offset >= file_size)
+		// {
+		// 	// printf("NULL\n");
+		// 	return NULL;
+		// }
 		struct file *map_file = file_reopen(process_get_file(fd));
 		void *mmap_addr = do_mmap(addr, file_size, writable, map_file, offset); // file size 수정
 		// printf("mmap addr: %p\n", mmap_addr);
@@ -348,10 +389,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 
 void munmap(void *addr)
 {
-	// [TBD] dirty 한지 확인
-	if (spt_find_page(&thread_current()->spt, addr) != NULL){
-		// printf("문맵~2\n");
-		do_munmap(addr);
-	}
+
+	do_munmap(addr);
 }
 

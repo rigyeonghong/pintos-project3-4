@@ -158,7 +158,7 @@ hash_apply (struct hash *h, hash_action_func *action) {
 
 		for (elem = list_begin (bucket); elem != list_end (bucket); elem = next) {
 			next = list_next (elem);
-			action (list_elem_to_hash_elem (elem), h->aux);
+			action(list_elem_to_hash_elem(elem), h->aux);
 		}
 	}
 }

@@ -166,7 +166,9 @@ struct thread {
 	struct intr_frame parent_if;
 	struct file *running;
 	
+	/* Project 3 - VM */
 	uintptr_t rsp;
+	struct list mmap_list;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

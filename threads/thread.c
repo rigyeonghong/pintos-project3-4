@@ -43,6 +43,9 @@ static int64_t next_tick_to_awake = INT64_MAX; // sleep_list에서 대기중인 
 
 static struct list all_list;
 
+// /* Project 3 - VM */
+// static struct list mmap_list; 
+
 /* Idle thread. */
 // idle 스레드란 운영체제가 초기화되고 ready_list가 생성되는데 이때 ready_list에 첫번째로 추가되는 스레드입니다. 굳이 이 스레드가 필요한 이유는 CPU가 실행상태를 유지하기 위해 실행할 스레드 하나 필요해서 입니다.
 //CPU가 할일이 없으면 아예 꺼져버렸다가 할일이 생기면 다시 켜는방식에서 소모되는 전력보다 무의미한 일이라도 하고 있는게 더 적은 전력을 소모하기 때문입니다.
@@ -575,6 +578,8 @@ init_thread(struct thread *t, const char *name, int priority)
 	sema_init(&t->fork_sema, 0); // fork_sema : 자식 프로세스 create 될 때까지 기다림
 	sema_init(&t->wait_sema, 0); // wait_sema : 자식 프로세스 종료할 때 까지 기다림
 	sema_init(&t->free_sema, 0); // free_sema : 자식 프로세스 free될 때 까지 기다림
+
+	list_init(&t->mmap_list); // Project 3 - VM
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
