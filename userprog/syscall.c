@@ -395,9 +395,5 @@ void munmap(void *addr)
 {
 
 	do_munmap(addr);
-
-	// if (spt_find_page(&thread_current()->spt, addr) != NULL){
-	// printf("문맵~2\n");
-	// 	do_munmap(addr);
-	// }
 }
+
