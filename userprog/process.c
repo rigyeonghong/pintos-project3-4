@@ -336,11 +336,12 @@ process_exit (void) {
 	file_close(curr->running); // load에서 file close -> process_exit할때 close file_deny_write
 
 	sema_up(&curr->wait_sema); // 종료되었다고 기다리고 있는 부모 thread에게 signal 보냄-> sema_up에서 val을 올려줌
+	/* [TBD] 수민이가 이거 올리면 exit 통과한댔는데 왜 안함 */
+	process_cleanup();	// pml4를 날림(이 함수를 call 한 thread의 pml4)
+	// printf("hi\n");
 
 	sema_down(&curr->free_sema); // 부모에게 exit_Status가 정확히 전달되었는지 확인(wait)
-	
-	process_cleanup();	// pml4를 날림(이 함수를 call 한 thread의 pml4)
-
+	// printf("bi\n");
 }
 
 /* Free the current process's resources. */
@@ -350,6 +351,7 @@ process_cleanup (void) {
 
 #ifdef VM
 	supplemental_page_table_kill (&curr->spt);
+	// printf("kill\n");
 #endif
 
 	uint64_t *pml4;
@@ -845,7 +847,9 @@ lazy_load_segment (struct page *page, void *aux) {
 	struct file_info *aux_file_info = (struct file_info *)aux;
 
 	file_seek(aux_file_info->file, aux_file_info->offset);
+
 	// printf("aux_file_info->file: %d\n", aux_file_info->file);
+	// printf("aux_file_info->file->pos: %d\n", aux_file_info->file->pos);
 	// printf("aux_file_info->read_bytes: %d\n", aux_file_info->read_bytes);
 	// printf("aux_file_info->zero_bytes: %d\n", aux_file_info->zero_bytes);
 	// printf("aux_file_info->offset: %d\n", aux_file_info->offset);
@@ -900,7 +904,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		aux_file_info->writable = writable;
 
 		// printf("writable: %d\n", writable);
-		if (!vm_alloc_page_with_initializer(VM_FILE, upage,
+		/* file에서 불러온 세그먼트지만, VM_ANON으로 설정해둠
+		이유 : VM_FILE은 swap-out될 때 변경 내용이 디스크에 기록됨
+		근데, .bss는 writable =1 로 들어오기 때문에, 수정이 가능하고
+		수정 내용이 디스크에 기록될 경우 실행파일 영구 손상 가능성있음. 이를 막으려고 ANON으로 설정*/
+
+		if (!vm_alloc_page_with_initializer(VM_ANON, upage,
 											writable, lazy_load_segment, (void *)aux_file_info))
 		{
 			return false;

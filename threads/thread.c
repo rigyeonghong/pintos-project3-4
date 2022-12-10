@@ -470,11 +470,13 @@ ready_list에서 Priority가 가장 높은 스레드와 현재 스레드의 Prio
 현재 스레드의 Priority가 더 낮으면, 높은 스레드에게 양보한다*/
 void test_max_priority(void)
 {
-	if (!list_empty(&ready_list)) // ready_list 가 비어있지 않은지 확인
-	{	
-		struct thread* high_thread = list_entry(list_begin(&ready_list), struct thread, elem);
-		if (thread_get_priority() < high_thread->priority)
-			thread_yield();
+	if (!intr_context()){
+		if (!list_empty(&ready_list)) // ready_list 가 비어있지 않은지 확인
+		{
+			struct thread *high_thread = list_entry(list_begin(&ready_list), struct thread, elem);
+			if (thread_get_priority() < high_thread->priority)
+				thread_yield();
+		}
 	}
 	// ready_list에서 우선순위가 가장 높은 스레드와 현재 스레드의 우선순위를 비교하여 스케줄링 한다. (ready_list 가 비어있지 않은지 확인)
 }

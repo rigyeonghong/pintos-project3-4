@@ -70,7 +70,14 @@ struct frame
 {
 	void *kva;
 	struct page *page;
+	struct list_elem lru;
+	struct thread *thread;
 };
+
+/* Project 3 - VM */
+struct list lru_list; // 할당된 물리 프레임들을 관리하는 리스트
+struct lock lru_list_lock;
+struct list_elem *lru_clock;
 
 
 /* The function table for page operations.

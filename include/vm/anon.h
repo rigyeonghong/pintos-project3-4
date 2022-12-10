@@ -6,6 +6,7 @@ enum vm_type;
 
 struct anon_page {
     void *aux;
+    size_t sector_idx;
 };
 
 void vm_anon_init (void);

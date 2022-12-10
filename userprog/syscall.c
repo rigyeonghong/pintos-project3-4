@@ -138,7 +138,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 }
 
 void check_address(void *addr) {
-	if((!is_user_vaddr(addr)) || spt_find_page(&thread_current()->spt, addr) == NULL || (addr == NULL)){	
+	if((!is_user_vaddr(addr)) || spt_find_page(&thread_current()->spt, addr) == NULL || (addr == NULL)){
+		// printf("check_address\n");
 		exit(-1);
 	}
 /* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
@@ -221,8 +222,8 @@ int read (int fd, void *buffer, unsigned size){
 	// {
 	// 	exit(-1);
 	// }
-
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
+	// struct file *get_file = file_reopen(process_get_file(fd));
 	int key_length = 0;
 
 	if (get_file == NULL){
@@ -246,7 +247,9 @@ int read (int fd, void *buffer, unsigned size){
 	}
 	else { 	 // 이외이면
 		lock_acquire(&filesys_lock); // 읽는동안 락 
+		// printf("=========read syscall 시작=========%d\n", get_file->pos);
 		key_length = file_read(get_file, buffer, size); // return bytes_read; //가져온 파일에서 읽고 버퍼에 넣어준다.
+		// printf("=========read syscall 끝=========%d\n", get_file->pos);
 		lock_release(&filesys_lock); // 락 해제	
 	}
 	return key_length;
@@ -314,6 +317,7 @@ void close (int fd){
 	}
 	file_close(get_file);
 	cur_thread->fd_table[fd] = NULL; // fd 초기화
+	// printf("?\n");
 };
 
 
@@ -356,7 +360,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	// printf("pgrounddown: %p\n", pg_round_down(addr));
 	// printf("length: %d\n", length);
 	// printf("length: %d\n", length);
-	// printf("offset: %p", offset);
+	// printf("offset: %p\n", offset);
 	// printf("find_page: %d\n", spt_find_page(&thread_current()->spt, addr));
 	if (offset % PGSIZE != 0){
 		return NULL;
