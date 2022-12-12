@@ -36,6 +36,9 @@ process_init (void) {
 	struct thread *current = thread_current ();
 }
 
+/* FILE_NAME으로부터 load된 "initd"라는 첫번째 userland program을 시작함
+   thread_creat()해서 thread생성 후 tid 반환 */
+/* 프로세스(쓰레드)를 생성하는 함수를 호출하고 tid를 반환한다 */
 /* Starts the first userland program, called "initd", loaded from FILE_NAME.
  * The new thread may be scheduled (and may even exit)
  * before process_create_initd() returns. Returns the initd's
@@ -45,19 +48,27 @@ tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
 	tid_t tid;
-
+	/* file_name 문자열을 파싱(첫번째 토큰) */
 	/* Make a copy of FILE_NAME.
 	 * Otherwise there's a race between the caller and load(). */
 	fn_copy = palloc_get_page (0);
 	if (fn_copy == NULL)
 		return TID_ERROR;
+
+	/* 커맨드라인에서 프로세스이름 확인 */ 
 	strlcpy (fn_copy, file_name, PGSIZE);
+	
+	char *token, *save_ptr;
+	strtok_r (file_name, " ", &save_ptr);
 
 	/* Project 2 - user program : 스레드 이름 파싱 */
 	char *save_ptr, *token;
 	token = strtok_r(file_name, " ", &save_ptr);
 
 	/* Create a new thread to execute FILE_NAME. */
+	// file_name: 스레드이름(문자열), PRI_DEFAULT: 스레드우선순위(31)
+	// initd: 생성된 스레드가 실행할 함수를 가리키는 포인터, fn_copy: start_process 함수를 수행할 때 사용하는 인자값
+	// initd : 1st argument(rdi) , fn_copy : 2nd argument(rsi)
 	tid = thread_create (file_name, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page (fn_copy);
@@ -71,9 +82,7 @@ initd (void *f_name) {
 #ifdef VM
 	supplemental_page_table_init (&thread_current ()->spt);
 #endif
-
 	process_init ();
-
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
@@ -81,6 +90,10 @@ initd (void *f_name) {
 
 /* Clones the current process as `name`. Returns the new process's thread id, or
  * TID_ERROR if the thread cannot be created. */
+/* 인터럽트 프레임 : 인터럽트가 호출됐을 때 이전에 레지스터에 작업하던 context 정보를 스택에 담는 구조체 (Woony)*/
+/* 즉, 유저 프로그램 실행 정보는 syscall_handler로 전달되는 intr_frame에 저장된다. 이를 __do_fork에 넘겨주는 방식. 
+ * 따라서 우리가 구현해야 하는 시스템 콜 핸들러의 fork 함수에는 thread_name과 tf를 인자로 받아야 하며, 
+ * 이때 전달되는 tf는 시스템 콜 핸들러로 넘어온 f에 정보가 들어있다. */
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
@@ -114,8 +127,8 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
  * pml4_for_each. This is only for the project 2. */
 static bool
 duplicate_pte (uint64_t *pte, void *va, void *aux) {
-	struct thread *current = thread_current ();
-	struct thread *parent = (struct thread *) aux;
+	struct thread *current = thread_current ();     
+	struct thread *parent = (struct thread *) aux;  
 	void *parent_page;
 	void *newpage;
 	bool writable;
@@ -144,6 +157,7 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	memcpy(newpage, parent_page, PGSIZE);
 	writable = is_writable(pte);
 
+	/* pml4_set_page로 가상메모리와 물리메모리를 맵핑함 (writable에 대한 정보를 가지고서) */
 	/* 5. Add new page to child's page table at address VA with WRITABLE
 	 *    permission. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
@@ -154,15 +168,18 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 }
 #endif
 
+/* 부모 프로세스의 실행 context를 자식 프로세스로 복사하는 함수(by Woony) */
 /* A thread function that copies parent's execution context.
  * Hint) parent->tf does not hold the userland context of the process.
  *       That is, you are required to pass second argument of process_fork to
  *       this function. */
+/* 인터럽트 프레임 : 인터럽트가 호출됐을 때 이전에 레지스터에 작업하던 context 정보를 스택에 담는 구조체(Woony)*/
 static void
-__do_fork (void *aux) {
-	struct intr_frame if_;
+__do_fork (void *aux) {	//process_fork함수에서 thread_create()을 호출하면서 aux는 thread_current()를 들고옴
+	struct intr_frame if_; 
 	struct thread *parent = (struct thread *) aux;
-	struct thread *current = thread_current ();
+	struct thread *current = thread_current (); 
+
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	struct intr_frame *parent_if = &parent->parent_if;
 	bool succ = true;
@@ -170,27 +187,23 @@ __do_fork (void *aux) {
 	/* 1. Read the cpu context to local stack. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
 
-	
-	//printf("parent rsp: %p\n", parent_if->rsp);
-	//printf("child rsp: %p\n", if_.rsp);
-	// printf("---------do_fork : memcpy---------\n");
 	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
 	if (current->pml4 == NULL)
 		goto error;
 
 	process_activate (current);
+
 #ifdef VM
 	supplemental_page_table_init (&current->spt);
 	if (!supplemental_page_table_copy (&current->spt, &parent->spt)){
-		//printf("---------do_fork : spt copy error---------\n");
 		goto error;
 	}
-	//printf("---------do_fork : spt copy end---------\n");
-	// hex_dump(if_.rsp, if_.rsp, USER_STACK - if_.rsp, true);
+
 #else
-	if (!pml4_for_each (parent->pml4, duplicate_pte, parent))
+	if (!pml4_for_each (parent->pml4, duplicate_pte, parent)){
 		goto error;
+	}
 #endif
 	// multi -oom
 	if(parent->fd == FDCOUNT_LIMIT)
@@ -225,6 +238,7 @@ error:
 	exit(TID_ERROR);
 }
 
+/* (한양대 : start_process, CSAPP p.721) 프로그램을 메모리에 적재(load) 후 프로그램 시작*/
 /* Switch the current execution context to the f_name.
  * Returns -1 on fail. */
 int
@@ -233,9 +247,20 @@ process_exec (void *f_name) {
 	bool success;
 	int count = 0;
 
+
+	/* 인자들을 띄어쓰기 기준으로 토큰화 및 토큰의 개수계산 (strtok_r() 함수이용) */
+	// strtok_r() 함수를 이용해 인자들을 토큰화하여 토큰의 개수를 계산한다.
+
+	// Setup virtual address of the program: code, data, stack (user stack) (추측)
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
+
+	/* Context change가 일어날 때 thread_launch()와 do_iret() 함수에서 아래와 같은 과정이 이루어지며, 이 과정에서 interrupt frame이 활용됩니다.
+	 * (1) 현재 cpu의 register 값들을 current thread(T1)의 intr_frame (tf)로 옮긴다.
+	 * (2) 새롭게 실행할 thread(T2)의 intr_frame에 있는 값을 cpu register로 옮긴다.
+	 * (3) iretq instruction을 활용해 T2에서 실행하던 코드를 마저 실행한다.
+	 * 정리하자면, intr_frame에 들어가야 할 내용은 cpu register에 있는 값입니다. 따라서 kernel memory에 별도로 저장되어 있는 값이 아닙니다. */
 	struct intr_frame _if;
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
@@ -244,7 +269,7 @@ process_exec (void *f_name) {
 	process_cleanup ();
 	supplemental_page_table_init(&thread_current()->spt);
 	/* And then load the binary */
-	// printf("==========load 시작전 : %d==========\n",thread_current()->tid);
+
 	success = load (file_name, &_if);
 	// hex_dump(_if.rsp,_if.rsp, USER_STACK - _if.rsp,true);
 
@@ -254,9 +279,11 @@ process_exec (void *f_name) {
 	if (!success)
 		return -1; 
 
+	// hex_dump(_if.rsp,_if.rsp,USER_STACK-_if.rsp,true);
+	
 	/* Start switched process. */
-	// thread_current()->rsp = _if.rsp; // [3-3]
 	do_iret(&_if);
+
 	NOT_REACHED ();
 }
 
@@ -266,7 +293,7 @@ process_exec (void *f_name) {
  * child of the calling process, or if process_wait() has already
  * been successfully called for the given TID, returns -1
  * immediately, without waiting.
- *
+ * 
  * This function will be implemented in problem 2-2.  For now, it
  * does nothing. */
 int
@@ -293,12 +320,19 @@ process_wait (tid_t child_tid UNUSED) {
 /* Exit the process. This function is called by thread_exit (). */
 void
 process_exit (void) {
-	// printf("exit 시작\n");
-	struct thread *curr = thread_current();
+	struct thread *cur = thread_current ();
+
 	/* TODO: Your code goes here.
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
+	// list_entry(cur.)
+	palloc_free_multiple(cur->fdt, FDT_PAGES);
+	file_close (cur->running_file);
+	sema_up(&cur->sema_wait); //fault!!
+
+	// Postpone child termination until parents receives its exit status with 'wait'
+	sema_down(&cur->sema_free);
 
 	palloc_free_multiple(curr->fd_table, FDT_PAGES);
 	
@@ -412,8 +446,9 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		uint32_t read_bytes, uint32_t zero_bytes,
 		bool writable);
 
+/* 메모리를 할당받고 사용자 프로그램을 메모리에 적재*/
 /* Loads an ELF executable from FILE_NAME into the current thread.
- * Stores the executable's entry point into *RIP
+ * Stores the executable's entry point into *RIP(프로그램 카운터:실행할 다음 인스트럭션의 메모리 주소를 가리키는 포인터)
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
 
@@ -542,14 +577,24 @@ load(const char *file_name, struct intr_frame *if_)
 		goto done;
 
 	/* Start address. */
+	// text세그먼트 시작 주소
 	if_->rip = ehdr.e_entry;
+
+	// 인자들을 스택에 삽입(인자 전달)
+	/* 유저스택에 프로그램이름과 인자들을 저장하는 함수 */
+	/* parse: 프로그램이름과 인자가 저장되어있는 메모리공간, count: 인자의개수, rsp: 스택포인터를가리키는주소 */
+	/* argument_stack() 함수를 호출할 시 인자 값을 스택에 오른쪽에서 왼쪽 순으로 저장한다. */
+	/* Return Address는 Caller(함수를 호출하는 부분)의 다음 수행 명령어 주소를 의미한다. */
+	/* Callee(호출 받은 함수)의 리턴 값은 rax 레지스터에 저장된다. */
+
+	argument_stack(arg_list,idx,if_);
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 	argument_stack(argv, argc, if_);
 
 	success = true;
-
+	
 done:
 	/* We arrive here whether the load is successful or not. */
 	// file_close(file); // file 닫히면서 lock이 풀림
@@ -557,6 +602,50 @@ done:
 	return success;
 }
 
+void argument_stack(char **arg_list,int idx,struct intr_frame *if_){
+
+	int i,j;
+	int cnt=0;
+	int start_addr=if_->rsp;
+
+	for (int i=idx-1; i>-1; i--)
+	{
+		cnt+=strlen(arg_list[i])+1;
+		for (j=strlen(arg_list[i]); j>-1 ; j--)
+		{
+			if_->rsp=if_->rsp-1;
+			memset(if_->rsp, arg_list[i][j], sizeof(char));
+		
+		}
+	
+		if (i==0){
+	
+		/* word-align*/
+		int align = 8 - (cnt % 8);
+		for (int k=0; k < align ; k++)
+		{
+			if_->rsp=if_->rsp-1;
+			memset(if_->rsp, 0, sizeof(char));
+		}
+
+		for (i=idx; i>-1; i--)
+		{
+			if_->rsp = if_->rsp-8;
+
+			if (i==idx)
+				memset(if_->rsp, 0, sizeof(char *));
+			else {
+				start_addr=start_addr-strlen(arg_list[i])-1;
+				memcpy(if_->rsp, &start_addr, sizeof(start_addr));
+			}
+		}
+		if_->rsp = if_->rsp-8;
+		memset(if_->rsp, 0, sizeof(void *));
+		if_->R.rdi=idx;
+		if_->R.rsi=if_->rsp + 8; 
+		}
+	}
+}
 
 /* 리경's argstack */
 void argument_stack(char **argv, int argc, struct intr_frame *if_)
@@ -779,8 +868,6 @@ lazy_load_segment (struct page *page, void *aux) {
 
 	// printf("[4]\n");
 	memset(page->frame->kva + aux_file_info->read_bytes, 0, aux_file_info->zero_bytes);
-	// printf("[5]\n");
-	
 	return true;
 }
 

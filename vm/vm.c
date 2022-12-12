@@ -99,23 +99,18 @@ spt_find_page(struct supplemental_page_table *spt, void *va)
 
 	/* TODO: Fill this function. */
 	// [3-1?] 우리가 원하는 va에 해당하는 페이지를 찾기 위해 가짜 페이지 할당
-	// printf("----va: %p-----\n", va);
 	struct page *temp = (struct page *)malloc(sizeof(struct page));
+	struct page *temp = palloc_get_page(PAL_USER);
 	temp->va = pg_round_down(va);
-	// printf("----temp->va: %p-----\n", temp->va);
 	// 가짜 페이지와 같은 hash를 가지는 페이지를 찾아옴
 	struct hash_elem *va_hash_elem = hash_find(&spt->spt_hash, &temp->h_elem);
-	// printf("----hash_elem: %p-----\n", va_hash_elem);
 	// 가짜 페이지 메모리 해제
 	free(temp);
 
 	if (va_hash_elem != NULL)
 	{
-		// printf("----hash elem 찾음!----\n");
 		page = hash_entry(va_hash_elem, struct page, h_elem);
-		// printf("찾은 페이지 va : %p\n", page->va);
 	}
-	// printf("----page 찾음!----\n");
 	return page;
 }
 
@@ -180,7 +175,6 @@ vm_get_victim(void)
 		}
 		else {
 			pml4_set_accessed(f->thread->pml4, f->page->va, 0);
-			// printf("set_acccess_bit into 0\n");
 		}
 	}
 
@@ -208,13 +202,12 @@ vm_get_victim(void)
 		}
 	}
 
-	// printf("lru_clock: %p\n", lru_clock);
 
 	goto done;
 
 done:
 	lock_release(&lru_list_lock);
-	// printf("victim: %p\n", victim);
+
 
 	return victim;
 }
@@ -224,7 +217,6 @@ done:
 static struct frame *
 vm_evict_frame(void)
 {
-	// printf("vm_evict_frame\n");
 	struct frame *victim UNUSED = vm_get_victim();
 	if (victim == NULL){
 		return victim;
@@ -248,6 +240,9 @@ vm_evict_frame(void)
  * and return it. This always return valid address. That is, if the user pool
  * memory is full, this function evicts the frame to get the available memory
  * space.*/
+/* palloc()하고 frame을 얻음. 사용 가능한 페이지가 없는 경우 페이지를 삭제하고 반환 
+   항상 유효한 주소를 반환. 
+   즉, user pool 메모리가 가득 차면 이 기능은 사용 가능한 메모리 공간을 얻기 위해 프레임을 제거 */
 static struct frame *
 vm_get_frame(void)
 {
@@ -258,7 +253,6 @@ vm_get_frame(void)
 	// printf("new_kva = %p\n", new_kva);
 	if (new_kva == NULL)
 	{
-		// printf("이제 frame이 없어유\n");
 		frame = vm_evict_frame();
 		if (frame ==NULL)
 			PANIC("todo"); // 쫓아낼 프레임도 없으면 패닉
@@ -342,6 +336,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	if ((!is_user_vaddr(addr)) || (addr == NULL))
 	{
 		printf("찐폴트\n");
+
 		exit(-1);
 	}
  
@@ -354,23 +349,17 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	if ((rsp - 8 <= addr) && (addr <= USER_STACK) && (addr >= (USER_STACK - MAXSTACK)))
 	{
-		// printf("스택아 자라라\n");
 		vm_stack_growth(pg_round_down(addr));
-		// printf("스택 자랐당\n");
 	}
 
 	fault_p = spt_find_page(&thread_current()->spt, addr);
 
 	if (fault_p == NULL)
+
 	{
-		// printf("페이지 어딧지 \n");
 		exit(-1);
+
 	}
-
-	// printf("write: %d\n", write);
-	// printf("p->cow: %d\n", fault_p->cow);
-
-
 
 	/* write protected page : Copy on Write */
 	if (write == 1 && fault_p->cow == 1)
@@ -382,6 +371,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	}
 	// printf("=======page fault 끝, addr: %p=======\n", addr);
 	return vm_claim_page(addr);
+
 }
 
 /* Free the page.
@@ -398,10 +388,8 @@ bool vm_claim_page(void *va UNUSED)
 	struct page *page = NULL;
 	/* TODO: Fill this function */
 	page = spt_find_page(&thread_current()->spt, va);
-	// printf("page type: %d\n" ,page->uninit.type);
 	if (page == NULL)
 	{
-		// printf("page==NULL\n");
 		return false;
 	}
 	return vm_do_claim_page(page);
@@ -416,13 +404,10 @@ bool vm_do_claim_page(struct page *page)
 	// printf("[vm_do_claim_page] type: %d\n", page->uninit.type);
 	int result = false;
 	struct thread *t = thread_current();
-	// printf("[vm_do_claim_page] tid: %d\n", thread_current()->tid);
-	// bool writable;
 
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
-
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// [3-1?] wr 세팅을 1로 하는게 맞나?
@@ -439,9 +424,9 @@ bool vm_do_claim_page(struct page *page)
 	result = swap_in(page, frame->kva);
 	// printf("[vm_do_claim_page] swap in 성공 - %d \n", result);
 
+
 	return result;
 }
-
 
 /* Initialize new supplemental page table */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
@@ -499,6 +484,7 @@ void supplemental_copy_entry(struct hash_elem *e, void *aux){
 
 		child_p->writable = p->writable;
 		child_p->cow = p->writable;
+
 	}
 
 }
