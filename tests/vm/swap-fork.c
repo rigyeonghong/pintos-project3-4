@@ -25,7 +25,10 @@ test_main (void)
     }
 	/* Wait for children */
     for(i =0; i < CHILD_CNT; i++) {
-  	  if(wait (child[i]) != 0)
-          fail("More than one child process' stack is corrupted");
+      int a = wait (child[i]);
+  	  if(a!=0){
+        printf("[wait]: %d\n",a);
+        fail("More than one child process' stack is corrupted");
+      }
     }
 }

@@ -278,6 +278,7 @@ process_wait (tid_t child_tid UNUSED) {
 	struct thread *parent_thread = thread_current();
 	struct thread* child_thread = get_child_process(child_tid);
 	if (child_thread == NULL) {
+		printf("====null이군아===\n");
 		return -1;
 	}
 	sema_down(&child_thread->wait_sema); // 여기서는 parent가 잠드는 거고

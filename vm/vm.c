@@ -329,11 +329,8 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 
 	bool doclaim_r;
 	struct file_info *temp;
-	// uint8_t fault_addr = (uint8_t)addr;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
-
-	// printf("=======page fault, addr: %p=======\n", addr);
 
 	// printf("=======page fault, addr: %p=======\n", addr);
 	// printf("[vm_try_handle_fault] user: %d\n", user);
@@ -344,10 +341,11 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	/* invalid excess fault*/
 	if ((!is_user_vaddr(addr)) || (addr == NULL))
 	{
-		// printf("찐폴트\n");
+		printf("찐폴트\n");
 		exit(-1);
 	}
  
+	/* STACK GROWTH */
 	void *rsp;
 	if (user == 1)
 		rsp = (void *)f->rsp;
@@ -372,7 +370,6 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	// printf("write: %d\n", write);
 	// printf("p->cow: %d\n", fault_p->cow);
 
-	/* STACK GROWTH */
 
 
 	/* write protected page : Copy on Write */
@@ -380,13 +377,11 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	{
 		bool result = vm_handle_wp(fault_p);
 		// printf("write_protected_page, handling complete: %d\n", result);
+		// printf("=======page fault 끝, addr: %p=======\n", addr);
 		return result;
 	}
-
-
-
+	// printf("=======page fault 끝, addr: %p=======\n", addr);
 	return vm_claim_page(addr);
-
 }
 
 /* Free the page.
@@ -494,24 +489,12 @@ void supplemental_copy_entry(struct hash_elem *e, void *aux){
 		// printf("VM_UNINIT\n");
 		// printf("[spt entry] : uninit p kva: %p\n", p->frame->kva);
 		vm_alloc_page_with_initializer(p->uninit.type, p->va, p->writable, lazy_load_segment, p->uninit.aux);
-		// child_p = (struct page *)spt_find_page(&thread_current()->spt, p->va);
-		// printf("child_p->va: %d\n", child_p->va);
-
-		// child_p->cow = child_cow;
 	}
 	else{
 		struct page *child_p = (struct page *)malloc(sizeof(struct page));
 		memcpy(child_p, p, sizeof(struct page));
 
 		spt_insert_page(&thread_current()->spt, child_p);
-
-		// if (parent_type == VM_ANON){
-		// 	anon_initializer(child_p, VM_ANON, p->frame->kva);
-		// }
-		// else if (parent_type == VM_FILE){
-		// 	file_backed_initializer(child_p, VM_FILE, p->frame->kva);
-		// }
-
 		pml4_set_page(thread_current()->pml4, child_p->va, p->frame->kva, 0);
 
 		child_p->writable = p->writable;

@@ -190,9 +190,9 @@ bool
 create (const char *file, unsigned initial_size) {
 
 	check_address(file);
-	lock_acquire(&filesys_lock);
+	// lock_acquire(&filesys_lock);
 	bool result = filesys_create(file, initial_size); // directory:filesys / filesys.c
-	lock_release(&filesys_lock);
+	// lock_release(&filesys_lock);
 	return result;
 }
 
