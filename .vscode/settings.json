@@ -1,6 +1,5 @@
 {
     "files.associations": {
-        "*.html": "html",
         "stdio.h": "c",
         "intrinsic.h": "c",
         "*.inc": "c",

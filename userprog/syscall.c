@@ -20,7 +20,7 @@
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
-void check_address(void *addr);
+struct page * check_address(void *addr);
 
 void halt (void);
 void exit (int status);
@@ -41,7 +41,8 @@ int wait (int pid);
 
 void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap(void *addr);
-void check_buffer(void *addr);
+
+void check_valid_buffer(void* buffer, unsigned size, void* rsp, bool to_write);
 
 /* System call.
  *
@@ -108,9 +109,11 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			f->R.rax = filesize(f->R.rdi);
 			break;
 		case SYS_READ:
+			check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 1);
 			f->R.rax = read(f->R.rdi, f->R.rsi, f->R.rdx);
 			break;
 		case SYS_WRITE:
+			check_valid_buffer(f->R.rsi, f->R.rdx, f->rsp, 0);
 			f->R.rax = write(f->R.rdi, f->R.rsi, f->R.rdx);
 			break;
 		case SYS_SEEK:
@@ -137,23 +140,38 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	// thread_exit ();
 }
 
-void check_address(void *addr) {
-	if((!is_user_vaddr(addr)) || spt_find_page(&thread_current()->spt, addr) == NULL || (addr == NULL)){
-		// printf("check_address\n");
+struct page *
+check_address(void *addr) {
+	/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
+	/* 잘못된 접근일 경우 프로세스 종료 */
+	if((!is_user_vaddr(addr)) || (addr == NULL)){
 		exit(-1);
 	}
-/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
-/* 잘못된 접근일 경우 프로세스 종료 */
+	return spt_find_page(&thread_current()->spt, addr);
 }
 
-void check_buffer(void *addr) {
-	if((!is_user_vaddr(addr)) || spt_find_page(&thread_current()->spt, addr) == NULL || (addr == NULL) || is_writable((uint64_t *)addr) == 0){	
-		exit(-1);
+void check_valid_buffer(void* buffer, unsigned size, void* rsp, bool to_write){
+	// to_write 변수는 buffer에 내용을 쓸 수 있는지 없는지 검사하는 변수
+	/* 인자로 받은 buffer부터 buffer + size까지의 크기가 한 페이지의 크기를 넘을 수도 있음 */
+	if (buffer <= USER_STACK && buffer >= rsp)
+		return;
+
+	uintptr_t start_page = pg_round_down(buffer);
+	uintptr_t end_page = pg_round_down(buffer + size -1);
+
+	/* buffer 부터 buffer + size까지의 주소에 포함되는 vm_entry들에 대해 적용 */
+	for (; start_page <= end_page; start_page += PGSIZE){
+		/* check_address를 이용해서 주소의 유저영역 여부를 검사함과 동시에 vm_entry 구조체를 얻음 */
+		struct page *p = check_address(start_page);
+		if(p == NULL)
+			exit(-1);
+
+		/* writable 멤버가 true인지 검사 */
+		if (p->writable == false && to_write == true)
+			exit(-1);
 	}
-/* 포인터가 가리키는 주소가 유저영역의 주소인지 확인 */
-/* 잘못된 접근일 경우 프로세스 종료 */
-}
 
+}
 
 void
 halt (void) {
@@ -170,8 +188,12 @@ exit (int status) {
 
 bool 
 create (const char *file, unsigned initial_size) {
+
 	check_address(file);
-	return filesys_create(file, initial_size); // directory:filesys / filesys.c 
+	// lock_acquire(&filesys_lock);
+	bool result = filesys_create(file, initial_size); // directory:filesys / filesys.c
+	// lock_release(&filesys_lock);
+	return result;
 }
 
 bool
@@ -182,7 +204,7 @@ remove (const char *file) {
 // Parent~child struct 구현 
 
 int open (const char *file){
-	// check_address(file); // 파일 유효 주소 확인
+	check_address(file); // 파일 유효 주소 확인
 	if(file == NULL){
 		exit(-1);
 	}
@@ -217,11 +239,7 @@ int filesize(int fd){
 
 int read (int fd, void *buffer, unsigned size){
 
-	// check_address(buffer); // 버퍼 유효주소 확인
-	// if (is_writable((uint64_t *)buffer) == 0)
-	// {
-	// 	exit(-1);
-	// }
+	check_address(buffer); // 버퍼 유효주소 확인
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
 	// struct file *get_file = file_reopen(process_get_file(fd));
 	int key_length = 0;
@@ -256,9 +274,8 @@ int read (int fd, void *buffer, unsigned size){
 }
 
 int write (int fd, const void *buffer, unsigned size){
-	// check_address(buffer); // 버퍼 유효주소 확인
-	// if (is_writable((uint64_t *)buffer) == 0)
 
+	check_address(buffer); // 버퍼 유효주소 확인
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
 
 	int key_length;

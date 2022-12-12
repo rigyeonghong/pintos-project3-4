@@ -55,6 +55,7 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 	ASSERT(VM_TYPE(type) != VM_UNINIT)
 
 	struct supplemental_page_table *spt = &thread_current()->spt;
+	// printf("[vm_alloc_page_with_initializer] writable %d:\n",writable);
 
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
@@ -69,22 +70,21 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 		} //[3-1?] ??
 		else if (type == VM_FILE)
 		{
-			// printf("aux: %p\n", aux);
+			// printf("[vm_alloc_page_with_initializer] VM_FILE init: %p\n", init);
 			uninit_new(new_page, upage, init, type, aux, file_backed_initializer);
 		}
-		// else if (type == VM_MARKER_0){
-		// 	uninit_new(new_page, upage, init, type, aux, anon_initializer);
-		// }
 		else
 		{
 			// uninit_new(new_page, upage, init, type, aux, NULL);
 			goto err;
 		}
+		new_page->writable = writable;
 		/* TODO: Insert the page into the spt. */
 		if (spt_insert_page(spt, new_page) == false)
 		{
 			goto err;
 		}
+
 	}
 	return true;
 err:
@@ -130,7 +130,7 @@ bool spt_insert_page(struct supplemental_page_table *spt,
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 {
 	hash_delete(&spt->spt_hash, &page->h_elem);
-	vm_dealloc_page(page);
+	// vm_dealloc_page(page);
 }
 
 /* Get the struct frame, that will be evicted. */
@@ -149,7 +149,7 @@ vm_get_victim(void)
 		clock pointer 옮기기
 	}*/
 
-	// lock_acquire(&lru_list_lock);
+	lock_acquire(&lru_list_lock);
 
 	if (lru_clock == NULL){
 		lru_clock = list_begin(&lru_list);
@@ -206,7 +206,8 @@ vm_get_victim(void)
 	goto done;
 
 done:
-	// lock_release(&lru_list_lock);
+	lock_release(&lru_list_lock);
+
 
 	return victim;
 }
@@ -265,10 +266,10 @@ vm_get_frame(void)
 	}
 	frame->thread = thread_current();
 
-	// lock_acquire(&lru_list_lock);
+	lock_acquire(&lru_list_lock);
 	list_push_back(&lru_list, &frame->lru);
 	// [3-1?] 다른 멤버들 초기화 필요? (operations, union)
-	// lock_release(&lru_list_lock);
+	lock_release(&lru_list_lock);
 
 	ASSERT(frame != NULL);
 	ASSERT(frame->page == NULL);
@@ -287,6 +288,30 @@ vm_stack_growth(void *addr UNUSED)
 static bool
 vm_handle_wp(struct page *page UNUSED)
 {
+	struct frame *old_f = page->frame;	
+	struct frame *new_f = vm_get_frame();
+
+	if (new_f==NULL)
+		return false;
+
+	memcpy(new_f->kva, old_f->kva, PGSIZE);
+
+	// printf("new kva: %p\n", new_f->kva);
+	// printf("old kva: %p\n", old_f->kva);
+
+
+	page->writable = 1;
+	page->frame = new_f;
+	page->cow = 0;
+	new_f->page = page;
+
+	// cow를 돌려놔야 하나?
+
+	// printf("page->va: %p\n", page->va);
+
+	// printf("pml4_get_page: %p\n", pml4_get_page(thread_current()->pml4, page->va));
+
+	return pml4_set_page(thread_current()->pml4, page->va, new_f->kva, 1);
 }
 
 /* Return true on success */
@@ -294,44 +319,66 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
 	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
-	struct page *page = NULL;
+	struct page *fault_p;
+
 	bool doclaim_r;
+	struct file_info *temp;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+
+	// printf("=======page fault, addr: %p=======\n", addr);
+	// printf("[vm_try_handle_fault] user: %d\n", user);
+	// printf("[vm_try_handle_fault] write: %d\n", write);
+	// printf("[vm_try_handle_fault] not_present: %d\n", not_present);
+	// printf("[vm_try_handle_fault] tid: %d\n", thread_current()->tid);
+
+	/* invalid excess fault*/
 	if ((!is_user_vaddr(addr)) || (addr == NULL))
 	{
+		printf("찐폴트\n");
+
 		exit(-1);
 	}
-
+ 
 	/* STACK GROWTH */
-	void * rsp;
+	void *rsp;
 	if (user == 1)
 		rsp = (void *)f->rsp;
 	else
 		rsp = (void *)thread_current()->rsp;
 
-	if ((rsp-8 <= addr) && (addr <= USER_STACK) && (addr >= (USER_STACK - MAXSTACK))) {
+	if ((rsp - 8 <= addr) && (addr <= USER_STACK) && (addr >= (USER_STACK - MAXSTACK)))
+	{
 		vm_stack_growth(pg_round_down(addr));
 	}
 
-	// printf("thread_current spt: %p\n", &thread_current()->spt);
-	if (spt_find_page(&thread_current()->spt, addr) == NULL)
+	fault_p = spt_find_page(&thread_current()->spt, addr);
+
+	if (fault_p == NULL)
+
 	{
 		exit(-1);
 
 	}
-	/* lazy loading 으로 인한 page fault */
-	doclaim_r = vm_claim_page(addr);
 
-	return doclaim_r;
-	
+	/* write protected page : Copy on Write */
+	if (write == 1 && fault_p->cow == 1)
+	{
+		bool result = vm_handle_wp(fault_p);
+		// printf("write_protected_page, handling complete: %d\n", result);
+		// printf("=======page fault 끝, addr: %p=======\n", addr);
+		return result;
+	}
+	// printf("=======page fault 끝, addr: %p=======\n", addr);
+	return vm_claim_page(addr);
+
 }
 
 /* Free the page.
  * DO NOT MODIFY THIS FUNCTION. */
 void vm_dealloc_page(struct page *page)
 {
-	// destroy(page);
+	destroy(page);
 	free(page);
 }
 
@@ -352,23 +399,32 @@ bool vm_claim_page(void *va UNUSED)
 bool vm_do_claim_page(struct page *page)
 {
 	struct frame *frame = vm_get_frame();
+	// printf("===========vm_do_claim_page: start=============\n");
+	// printf("[vm_do_claim_page] va: %p\n", page->va);
+	// printf("[vm_do_claim_page] type: %d\n", page->uninit.type);
 	int result = false;
 	struct thread *t = thread_current();
-	bool writable;
 
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
-/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// [3-1?] wr 세팅을 1로 하는게 맞나?
 
-	if (!install_page(page->va, frame->kva, 1))
-	{
+	// printf("[vm_do_claim_page] page->va: %p\n", page->va);
+	// printf("[vm_do_claim_page] frame->kva: %p\n", frame->kva);
+	// printf("[vm_do_claim_page] page->writable: %d\n", page->writable);
+	if (!install_page(page->va, frame->kva, page->writable))
 		return false;
-	}
+
+	// printf("pte: %p\n", *( (uint64_t *) page->va));
+	// printf("[vm_do_claim_page] set_page 성공 \n");
 
 	result = swap_in(page, frame->kva);
+	// printf("[vm_do_claim_page] swap in 성공 - %d \n", result);
+
+
 	return result;
 }
 
@@ -399,6 +455,7 @@ src의 spt에 있는 각 페이지를 순회하면서 각 엔트리와 똑같은
 uninit page를 할당하고 즉시 claim 해야함 */
 /* Copy supplemental page table from src to dst */
 bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, struct supplemental_page_table *src UNUSED){
+	// printf("copy 시작\n");
 	hash_apply(&src->spt_hash, supplemental_copy_entry);
 	// printf("copy 끝\n");
 	return true;
@@ -408,31 +465,26 @@ void supplemental_copy_entry(struct hash_elem *e, void *aux){
 	// printf("entry\n");
 
 	struct page *p = hash_entry(e, struct page, h_elem);
-	if (p->operations->type == VM_UNINIT)
+	struct page *child_p;
+	enum vm_type parent_type = p->operations->type;
+	// bool child_cow = p->writable;
+
+	if (parent_type== VM_UNINIT)
 	{
-		vm_alloc_page_with_initializer(p->uninit.type, p->va, 1, lazy_load_segment, p->uninit.aux);
+		// printf("VM_UNINIT\n");
+		// printf("[spt entry] : uninit p kva: %p\n", p->frame->kva);
+		vm_alloc_page_with_initializer(p->uninit.type, p->va, p->writable, lazy_load_segment, p->uninit.aux);
 	}
-	else if (p->operations->type == VM_ANON) {
-		// printf("VM_ANON\n");
-		vm_alloc_page(VM_ANON, p->va, 1);
-		struct page *child_p = spt_find_page(&thread_current()->spt, p->va);
-		
-		vm_claim_page(p->va);
+	else{
+		struct page *child_p = (struct page *)malloc(sizeof(struct page));
+		memcpy(child_p, p, sizeof(struct page));
 
-		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);
+		spt_insert_page(&thread_current()->spt, child_p);
+		pml4_set_page(thread_current()->pml4, child_p->va, p->frame->kva, 0);
 
-		
-	}
-	else if (p->operations->type == VM_FILE){
+		child_p->writable = p->writable;
+		child_p->cow = p->writable;
 
-		struct file_info *temp = (struct file_info *) p->file.aux;
-		vm_alloc_page(VM_FILE, p->va, 1);
-		struct page *child_p = (struct page *)spt_find_page(&thread_current()->spt, p->va);
-		struct file_page *file_page = &child_p->file;
-		file_page->aux = temp;
-
-		vm_claim_page(p->va);
-		memcpy(child_p->frame->kva, p->frame->kva, PGSIZE);
 	}
 
 }
@@ -443,8 +495,9 @@ void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+	// printf("spt_kill start\n");
 	hash_destroy(&spt->spt_hash, supplemental_destroy_entry);
-	// printf("hi\n");
+	// printf("spt_kill end\n");
 }
 
 void supplemental_destroy_entry(struct hash_elem *e, void *aux)
@@ -453,5 +506,5 @@ void supplemental_destroy_entry(struct hash_elem *e, void *aux)
 	if (p->operations->type == VM_FILE){
 		do_munmap(p->va);
 	}
-	// spt_remove_page(&thread_current()->spt,p);
+	//spt_remove_page(&thread_current()->spt,p);
 }
