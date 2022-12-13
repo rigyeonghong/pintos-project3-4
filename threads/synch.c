@@ -32,6 +32,12 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+/* Returns true if T appears to point to a valid thread. */
+#define THREAD_MAGIC 0xcd6abf4b
+#define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
+
+/* semapore를 주어진 value로 초기화 */
+/* sema_init 안에서 waiter list_init 또한 실행 */
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -49,6 +55,8 @@ sema_init (struct semaphore *sema, unsigned value) {
 	list_init (&sema->waiters);
 }
 
+/* semapore를 요청하고 획득했을 때 value를 1 낮춤  */
+/* (자원획득) SEMA 값이 양수가 되기를 기다리고 양수가 되면 감소시킴. */
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 
@@ -98,6 +106,8 @@ sema_try_down (struct semaphore *sema) {
 	return success;
 }
 
+/* semaphore를 반환하고 value를 1 높임 */
+/* (자원반납). SEMA의 값을 증가시키고 SEMA를 기다리는 쓰레드 중(있는 경우) 하나의 스레드를 깨운다. */
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
    and wakes up one thread of those waiting for SEMA, if any.
 
@@ -154,6 +164,7 @@ sema_test_helper (void *sema_) {
 	}
 }
 
+/* lock 자료구조를 초기화 */
 /* Initializes LOCK.  A lock can be held by at most a single
    thread at any given time.  Our locks are not "recursive", that
    is, it is an error for the thread currently holding a lock to
@@ -173,10 +184,11 @@ void
 lock_init (struct lock *lock) {
 	ASSERT (lock != NULL);
 
-	lock->holder = NULL;
+	lock->holder = NULL;	// holder - struct thread
 	sema_init (&lock->semaphore, 1);
 }
 
+/* lock을 요청 */
 /* Acquires LOCK, sleeping until it becomes available if
    necessary.  The lock must not already be held by the current
    thread.
@@ -231,6 +243,7 @@ lock_try_acquire (struct lock *lock) {
 	return success;
 }
 
+/* lock을 반환 */
 /* Releases LOCK, which must be owned by the current thread.
    This is lock_release function.
 
@@ -268,6 +281,7 @@ lock_held_by_current_thread (const struct lock *lock) {
 	return lock->holder == thread_current ();
 }
 
+
 /* One semaphore in a list. */
 /* Project 1 - Priority Scheduling : Sync [수정0] */
 struct semaphore_elem {
@@ -276,16 +290,18 @@ struct semaphore_elem {
 	int priority; //[수정0] semaphore를 기다리는 thread의 priority를 저장함
 };
 
+/* condition variable 자료구조를 초기화 */
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
    code to receive the signal and act upon it. */
 void
 cond_init (struct condition *cond) {
 	ASSERT (cond != NULL);
-
-	list_init (&cond->waiters);
+// (1) waiters list를 공유하거나 또는 (2) cond와 sema에 대해 독립적인 2개의 waiter list ???
+	list_init (&cond->waiters);		
 }
 
+/* condition variable을 통해 signal이 오는지 기다림 */
 /* Atomically releases LOCK and waits for COND to be signaled by
    some other piece of code.  After COND is signaled, LOCK is
    reacquired before returning.  LOCK must be held before calling
@@ -325,6 +341,8 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	lock_acquire (lock);
 }
 
+/* condition variable에서 기다리는 가장 높은 우선순위의 스레드에 signal을 보냄 (즉, sema_up으로 깨우기) */
+/* condition variable의 waiters list를 우선순위로 재정렬 */
 /* If any threads are waiting on COND (protected by LOCK), then
    this function signals one of them to wake up from its wait.
    LOCK must be held before calling this function.
@@ -346,7 +364,6 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 					struct semaphore_elem, elem)->semaphore);
 	}
 }
-
 
 /* Wakes up all threads, if any, waiting on COND (protected by
    LOCK).  LOCK must be held before calling this function.
