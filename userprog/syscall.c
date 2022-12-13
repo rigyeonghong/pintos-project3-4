@@ -68,7 +68,7 @@ void check_valid_buffer(void* buffer, unsigned size, void* rsp, bool to_write);
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 	lock_init (&filesys_lock);
-}
+	}
 
 /* The main system call interface */
 void
@@ -208,9 +208,9 @@ int open (const char *file){
 	if(file == NULL){
 		exit(-1);
 	}
-	// printf("hi!\n");
 	lock_acquire(&filesys_lock);
 	struct file *open_file = filesys_open(file); // 파일 오픈 및 파일 명 지정
+	lock_release(&filesys_lock);
 	if (open_file == NULL){ // 오픈 파일 명 값 확인
 		return -1;
 	}	
@@ -218,7 +218,7 @@ int open (const char *file){
 	if (open_file_fd == -1){			//실패시
 		file_close(open_file);	 // 파일 닫기
 	} 
-	lock_release(&filesys_lock);
+	
 	return open_file_fd;	 // 성공시 fd값 리턴
 	// 파일을 열 때 사용하는 시스템 콜
 	// 성공 시 fd를 생성하고 반환, 실패 시 -1 반환
@@ -265,9 +265,7 @@ int read (int fd, void *buffer, unsigned size){
 	}
 	else { 	 // 이외이면
 		lock_acquire(&filesys_lock); // 읽는동안 락 
-		// printf("=========read syscall 시작=========%d\n", get_file->pos);
 		key_length = file_read(get_file, buffer, size); // return bytes_read; //가져온 파일에서 읽고 버퍼에 넣어준다.
-		// printf("=========read syscall 끝=========%d\n", get_file->pos);
 		lock_release(&filesys_lock); // 락 해제	
 	}
 	return key_length;
@@ -334,7 +332,6 @@ void close (int fd){
 	}
 	file_close(get_file);
 	cur_thread->fd_table[fd] = NULL; // fd 초기화
-	// printf("?\n");
 };
 
 
@@ -371,14 +368,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	5) addr이 page-aligned 하지 않은 경우
 	6) 매핑된 페이지 영역이 기존의 매핑된 페이지 집합과 겹치는 경우
 	*/
-	// printf("fd: %d\n", fd);
-	// printf("filesize: %d\n", filesize(fd));
-	// printf("addr: %p\n", addr);
-	// printf("pgrounddown: %p\n", pg_round_down(addr));
-	// printf("length: %d\n", length);
-	// printf("length: %d\n", length);
-	// printf("offset: %p\n", offset);
-	// printf("find_page: %d\n", spt_find_page(&thread_current()->spt, addr));
+
 	if (offset % PGSIZE != 0){
 		return NULL;
 	}
@@ -390,19 +380,13 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 
 	size_t file_size = filesize(fd) < length ? filesize(fd) : length;
 
-	// printf("length: %d\n", length);
-	// printf("filesize: %d\n", file_size);
+
 	if ((fd != 0) && (fd != 1) && (file_size > 0) && (addr != 0) && ( (long long) length > 0) && (addr == pg_round_down(addr)) && (spt_find_page(&thread_current()->spt, addr) == NULL))
 	{
-		// printf("mmap 하자!\n");
-		// if ((size_t)offset >= file_size)
-		// {
-		// 	// printf("NULL\n");
-		// 	return NULL;
-		// }
+		lock_acquire(&filesys_lock);
 		struct file *map_file = file_reopen(process_get_file(fd));
+		lock_release(&filesys_lock);
 		void *mmap_addr = do_mmap(addr, file_size, writable, map_file, offset); // file size 수정
-		// printf("mmap addr: %p\n", mmap_addr);
 		return mmap_addr;
 	}
 	return NULL;
@@ -410,11 +394,5 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 
 void munmap(void *addr)
 {
-
 	do_munmap(addr);
-
-	// if (spt_find_page(&thread_current()->spt, addr) != NULL){
-	// printf("문맵~2\n");
-	// 	do_munmap(addr);
-	// }
 }

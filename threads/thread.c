@@ -755,7 +755,8 @@ void donate_priority(void)
 			break;
 		}
 		else{
-			cur_thread = cur_thread->wait_on_lock->holder;
+			if (cur_thread->wait_on_lock->holder > 0x100 )
+				cur_thread = cur_thread->wait_on_lock->holder;
 			if (cur_thread->priority < donate_p){
 				cur_thread->priority = donate_p;
 			}
