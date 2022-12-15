@@ -21,6 +21,8 @@ struct dir_entry {
 
 /* Creates a directory with space for ENTRY_CNT entries in the
  * given SECTOR.  Returns true if successful, false on failure. */
+/* 지정된 섹터의 ENTERY_CNT 항목에 대한 공간이 있는 디렉터리를 만듭니다.
+   성공하면 true를 반환하고 실패하면 false를 반환합니다.*/
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) {
 	return inode_create (sector, entry_cnt * sizeof (struct dir_entry));

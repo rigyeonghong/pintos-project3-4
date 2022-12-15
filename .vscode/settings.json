@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.html": "html",
         "stdio.h": "c",
         "intrinsic.h": "c",
         "*.inc": "c",
@@ -7,6 +8,8 @@
         "synch.h": "c",
         "main.h": "c",
         "init.h": "c",
-        "thread.h": "c"
+        "thread.h": "c",
+        "stdint.h": "c",
+        "uninit.h": "c"
     }
 }

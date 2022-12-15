@@ -15,8 +15,8 @@ typedef uint32_t cluster_t;  /* Index of a cluster within FAT. */
 
 /* Sectors of FAT information. */
 #define SECTORS_PER_CLUSTER 1 /* Number of sectors per cluster */
-#define FAT_BOOT_SECTOR 0     /* FAT boot sector. */
-#define ROOT_DIR_CLUSTER 1    /* Cluster for the root directory */
+#define FAT_BOOT_SECTOR 0     /* FAT boot sector. 물리적 찐0*/
+#define ROOT_DIR_CLUSTER 1   /* Cluster for the root directory 인덱스로 생각하자 */
 
 void fat_init (void);
 void fat_open (void);

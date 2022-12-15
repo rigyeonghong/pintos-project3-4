@@ -17,7 +17,7 @@ static void do_format (void);
  * If FORMAT is true, reformats the file system. */
 void
 filesys_init (bool format) {
-	filesys_disk = disk_get (0, 1);
+	filesys_disk = disk_get (0, 1); // 0:1 - file system
 	if (filesys_disk == NULL)
 		PANIC ("hd0:1 (hdb) not present, file system initialization failed");
 
@@ -57,6 +57,9 @@ filesys_done (void) {
  * Returns true if successful, false otherwise.
  * Fails if a file named NAME already exists,
  * or if internal memory allocation fails. */
+/* 지정된 INITIAL_SIZE를 사용하여 NAME이라는 이름의 파일을 만듭니다.
+* 성공하면 true를 반환하고, 그렇지 않으면 false를 반환합니다.
+* 이름이 NAME인 파일이 이미 있거나 내부 메모리 할당에 실패한 경우 실패 */
 bool
 filesys_create (const char *name, off_t initial_size) {
 	disk_sector_t inode_sector = 0;
