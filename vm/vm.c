@@ -172,6 +172,7 @@ vm_get_victim(void)
 		}
 	}
 
+
 	/* 두번째 for 문 : 처음부터 lru clock까지 돌기 */
 	for (fe = list_begin(&lru_list); fe != list_next(lru_clock); fe = list_next(fe))
 	{
@@ -192,6 +193,7 @@ vm_get_victim(void)
 			pml4_set_accessed(f->thread->pml4, f->page->va, 0);
 		}
 	}
+
 
 	goto done;
 
@@ -283,7 +285,6 @@ vm_handle_wp(struct page *page UNUSED)
 	memcpy(new_frame->kva, old_kva, PGSIZE);
 
 	page->cow = 0;
-
 	// cow를 돌려놔야 하나?
 	return pml4_set_page(thread_current()->pml4, page->va, new_frame->kva, 1);
 }
@@ -377,11 +378,11 @@ bool vm_do_claim_page(struct page *page)
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// [3-1?] wr 세팅을 1로 하는게 맞나?
+
 	if (!install_page(page->va, frame->kva, page->writable))
 		return false;
 
 	result = swap_in(page, frame->kva);
-
 
 	return result;
 }

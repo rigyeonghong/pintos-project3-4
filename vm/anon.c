@@ -35,7 +35,6 @@ void vm_anon_init(void)
 
 	// swap size 크기만큼 swap_table을 비트맵으로 생성
 	swap_table = bitmap_create(swap_slot_num);
-
 }
 
 /* Initialize the file mapping */

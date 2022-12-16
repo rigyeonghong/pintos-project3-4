@@ -5,6 +5,8 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "filesys/fat.h"
+#include "filesys/fsutil.h"
 
 /* A directory. */
 struct dir {
@@ -48,7 +50,8 @@ dir_open (struct inode *inode) {
  * Return true if successful, false on failure. */
 struct dir *
 dir_open_root (void) {
-	return dir_open (inode_open (ROOT_DIR_SECTOR));
+	disk_sector_t root = cluster_to_sector(ROOT_DIR_CLUSTER);
+	return dir_open (inode_open (root));
 }
 
 /* Opens and returns a new directory for the same inode as DIR.

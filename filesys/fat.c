@@ -38,7 +38,6 @@ fat_init (void) {
     if (fat_fs == NULL)
         PANIC ("FAT init failed");
 
-    // Read boot sector from the disk
     // 디스크에서 부팅 섹터 읽기
     unsigned int *bounce = malloc (DISK_SECTOR_SIZE);
     if (bounce == NULL)
@@ -47,7 +46,6 @@ fat_init (void) {
     memcpy (&fat_fs->bs, bounce, sizeof (fat_fs->bs));
     free (bounce);
 
-    // Extract FAT info
     // FAT 정보 추출
     if (fat_fs->bs.magic != FAT_MAGIC) // FAT 디스크를 식별하는 매직 문자열이 아니면
         fat_boot_create ();
@@ -60,7 +58,6 @@ fat_open (void) {
     if (fat_fs->fat == NULL)
         PANIC ("FAT load failed");
 
-    // Load FAT directly from the disk
     // 디스크에서 직접 FAT 로드
     uint8_t *buffer = (uint8_t *) fat_fs->fat;
     off_t bytes_read = 0;
@@ -184,13 +181,14 @@ fat_create_chain (cluster_t clst) {
     /* clst(클러스터 인덱싱 번호)로 특정된 클러스터의 뒤에 클러스터를 추가하여 체인을 확장합니다. 
     clst가 0이면 새 체인을 만듭니다. 
     새로 할당된 클러스터의 번호를 반환합니다. */
-    for(cluster_t i=1;  i <= (fat_fs->bs.fat_sectors*128); i++){
-        cluster_t c = fat_get(i);
-        if(c== 0){
-            fat_put(i, EOChain);
-            if (c !=0)
-                fat_put(clst, i);
-            return i;
+
+    for(cluster_t i= 2 ; i <= (fat_fs->bs.fat_sectors*128); i++){
+        cluster_t value = fat_get(i); // fat[i] 확인 
+        if(value == 0){ // 만약에 i번째 클러스터가 비어 있다면
+            fat_put(i, EOChain); // 새로운 클러스터 할당
+            if (clst != 0) // clst가 0이 아니면
+                fat_put(clst, i); // 원래 체인에 새로 할당한 클러스터 번호를 넣어줌
+            return i; 
         }
     }    
     return 0;
@@ -253,3 +251,12 @@ cluster_to_sector (cluster_t clst) {
     return fat_fs->bs.fat_sectors + clst;
 }
 
+/* Covert a cluster # to a sector number. */
+/* 클러스터 # 을 섹터 번호로 암호화함 */
+cluster_t
+sector_to_cluster(disk_sector_t sector)
+{
+	/* 클러스터 번호 clst를 해당하는 섹터 번호로 변환하고, 반환합니다.*/
+	// 159 - 157 = 2
+	return sector - fat_fs->bs.fat_sectors;
+}

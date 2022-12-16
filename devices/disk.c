@@ -207,9 +207,6 @@ disk_size (struct disk *d) {
    room for DISK_SECTOR_SIZE bytes.
    Internally synchronizes accesses to disks, so external
    per-disk locking is unneeded. */
-/* 섹터 SEC_NO를 디스크 D에서 버퍼로 읽습니다. 
-   버퍼에는 DISK_SEOCTOR_SIZE 바이트 공간이 있어야 합니다.
-   디스크에 대한 액세스를 내부적으로 동기화하므로 디스크별 외부 잠금이 필요하지 않습니다*/
 void
 disk_read (struct disk *d, disk_sector_t sec_no, void *buffer) {
 	struct channel *c;

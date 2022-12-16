@@ -101,6 +101,7 @@ process_fork (const char *name, struct intr_frame *if_ UNUSED) {
 	/* Clone current thread to new thread.*/
 	struct thread *parent_thread = thread_current();
 	memcpy(&parent_thread->parent_if, if_, sizeof(struct intr_frame)); // kernel stack에 있는 intr_frame을 부모 스레드의 intr_frame에 복사
+
 	tid_t new_tid = thread_create (name, PRI_DEFAULT, __do_fork, parent_thread); // 새로운 스레드 생성
 
 	if (new_tid == TID_ERROR) {

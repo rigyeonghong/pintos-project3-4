@@ -43,9 +43,10 @@ file_backed_swap_in (struct page *page, void *kva) {
 	struct thread *page_owner = page->frame->thread;
 	struct file_info *aux = (struct file_info *) page->file.aux;
 	/* 내용 읽어오고 */
-
 	// lock_acquire(&filesys_lock);
 	int result = file_read_at(aux->file, page->frame->kva, aux->read_bytes, aux->offset);
+	// lock_release(&filesys_lock);
+
 	if (result != (int)aux->read_bytes)
 	{
 		return false;
@@ -140,6 +141,7 @@ do_mmap (void *addr, size_t length, int writable,
 /* Do the munmap */
 void
 do_munmap (void *addr) {
+
 	/*
 	1) addr에 대한 매핑 해제 (addr은 동일 프로세스에서 mmap으로 반환된 va)
 	2) 프로세스에 의해 기록된 모든 페이지가 파일에 다시 기록되며, 쓰지 않은 페이지는 기록 x
@@ -163,7 +165,7 @@ do_munmap (void *addr) {
 			{
 				p = list_entry(pe, struct page, mmap_elem);
 				struct file_info *aux = p->file.aux;
-				// list_remove(pe);
+
 
 				if (pml4_is_dirty(cur->pml4, p->va))
 				{
