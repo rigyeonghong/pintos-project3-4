@@ -98,6 +98,7 @@ spt_find_page(struct supplemental_page_table *spt, void *va)
 	/* TODO: Fill this function. */
 	// [3-1?] 우리가 원하는 va에 해당하는 페이지를 찾기 위해 가짜 페이지 할당
 	struct page *temp = (struct page *)malloc(sizeof(struct page));
+	struct page *temp = palloc_get_page(PAL_USER);
 	temp->va = pg_round_down(va);
 	// 가짜 페이지와 같은 hash를 가지는 페이지를 찾아옴
 	struct hash_elem *va_hash_elem = hash_find(&spt->spt_hash, &temp->h_elem);
@@ -230,6 +231,9 @@ vm_evict_frame(void)
  * and return it. This always return valid address. That is, if the user pool
  * memory is full, this function evicts the frame to get the available memory
  * space.*/
+/* palloc()하고 frame을 얻음. 사용 가능한 페이지가 없는 경우 페이지를 삭제하고 반환 
+   항상 유효한 주소를 반환. 
+   즉, user pool 메모리가 가득 차면 이 기능은 사용 가능한 메모리 공간을 얻기 위해 프레임을 제거 */
 static struct frame *
 vm_get_frame(void)
 {
@@ -280,7 +284,6 @@ vm_handle_wp(struct page *page UNUSED)
 
 	memcpy(new_frame->kva, old_kva, PGSIZE);
 
-	// page->writable = 1;
 	page->cow = 0;
 	// cow를 돌려놔야 하나?
 	return pml4_set_page(thread_current()->pml4, page->va, new_frame->kva, 1);
@@ -302,6 +305,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	if ((!is_user_vaddr(addr)) || (addr == NULL))
 	{
 		return false;
+
 	}
 
 	/* STACK GROWTH */
@@ -319,12 +323,14 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	fault_p = spt_find_page(&thread_current()->spt, addr);
 
 	if (fault_p == NULL)
+
 	{
 		return false;
 	}
 
 	if(!fault_p->writable && write){
 		return false;
+
 	}
 
 	/* write protected page : Copy on Write */
@@ -333,8 +339,8 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 		bool result = vm_handle_wp(fault_p);
 		return result;
 	}
-
 	return vm_do_claim_page(fault_p);
+
 
 }
 
@@ -370,7 +376,6 @@ bool vm_do_claim_page(struct page *page)
 	frame->page = page;
 	page->frame = frame;
 
-
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	// [3-1?] wr 세팅을 1로 하는게 맞나?
 
@@ -378,9 +383,9 @@ bool vm_do_claim_page(struct page *page)
 		return false;
 
 	result = swap_in(page, frame->kva);
+
 	return result;
 }
-
 
 /* Initialize new supplemental page table */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
@@ -436,16 +441,13 @@ bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED, st
 			if (!pml4_set_page(curr->pml4, child_page->va, child_page->frame->kva, false))
 				return false;
 
-			// pml4_clear_page(parent_page->pml4, parent_page->va);
 			if (!pml4_set_page(parent_page->frame->thread->pml4, parent_page->va, parent_page->frame->kva, false))
 				return false;
 
-			// list_push_back(&child_page->frame->child_pages, &child_page->cow_elem);
 			child_page->cow = 1;
 			parent_page->cow = 1;
-			// child_page->frame->cow_cnt++;
-			// child_page->pml4 = curr->pml4;
 		}
+
 	}
 
 	return true;
@@ -471,13 +473,7 @@ void supplemental_destroy_entry(struct hash_elem *e, void *aux)
 	}
 	if (f){
 		if (p->cow == 0){
-			// if (lru_clock = &f->lru){
-				// lru_clock = list_next(&f->lru);
-			
 			list_remove(&f->lru);
-			// palloc_free_page(f->kva);
-			// free(f);
 		}
 	}
-	// spt_remove_page(&thread_current()->spt,p);
 }

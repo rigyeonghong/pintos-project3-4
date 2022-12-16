@@ -43,10 +43,10 @@ file_backed_swap_in (struct page *page, void *kva) {
 	struct thread *page_owner = page->frame->thread;
 	struct file_info *aux = (struct file_info *) page->file.aux;
 	/* 내용 읽어오고 */
-	// 여기 커널?
 	// lock_acquire(&filesys_lock);
 	int result = file_read_at(aux->file, page->frame->kva, aux->read_bytes, aux->offset);
 	// lock_release(&filesys_lock);
+
 	if (result != (int)aux->read_bytes)
 	{
 		return false;
@@ -95,8 +95,6 @@ do_mmap (void *addr, size_t length, int writable,
 	m_file->mmap_addr = origin_addr;
 	m_file->file = file;
 	list_init(&m_file->page_list);
-	// struct list p_list;
-	// list_init(&p_list);
 
 	while (read_bytes > 0 || zero_bytes > 0)
 	{
@@ -167,6 +165,7 @@ do_munmap (void *addr) {
 			{
 				p = list_entry(pe, struct page, mmap_elem);
 				struct file_info *aux = p->file.aux;
+
 
 				if (pml4_is_dirty(cur->pml4, p->va))
 				{

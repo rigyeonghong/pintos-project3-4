@@ -81,6 +81,7 @@ struct list lru_list; // 할당된 물리 프레임들을 관리하는 리스트
 struct lock lru_list_lock;
 struct list_elem *lru_clock;
 
+
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
  * Put the table of "method" into the struct's member, and

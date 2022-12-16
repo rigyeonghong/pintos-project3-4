@@ -190,9 +190,9 @@ bool
 create (const char *file, unsigned initial_size) {
 
 	check_address(file);
-	lock_acquire(&filesys_lock);
+	// lock_acquire(&filesys_lock);
 	bool result = filesys_create(file, initial_size); // directory:filesys / filesys.c
-	lock_release(&filesys_lock);
+	// lock_release(&filesys_lock);
 	return result;
 }
 
@@ -368,6 +368,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 	5) addr이 page-aligned 하지 않은 경우
 	6) 매핑된 페이지 영역이 기존의 매핑된 페이지 집합과 겹치는 경우
 	*/
+
 	if (offset % PGSIZE != 0){
 		return NULL;
 	}
