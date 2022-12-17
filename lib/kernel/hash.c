@@ -54,16 +54,15 @@ hash_clear (struct hash *h, hash_action_func *destructor) {
 	for (i = 0; i < h->bucket_cnt; i++) {
 		struct list *bucket = &h->buckets[i];
 
-		if (destructor != NULL)
+		if (destructor != NULL){
 			while (!list_empty (bucket)) {
 				struct list_elem *list_elem = list_pop_front (bucket);
 				struct hash_elem *hash_elem = list_elem_to_hash_elem (list_elem);
 				destructor (hash_elem, h->aux);
 			}
-
+		}
 		list_init (bucket);
 	}
-
 	h->elem_cnt = 0;
 }
 
@@ -159,7 +158,7 @@ hash_apply (struct hash *h, hash_action_func *action) {
 
 		for (elem = list_begin (bucket); elem != list_end (bucket); elem = next) {
 			next = list_next (elem);
-			action (list_elem_to_hash_elem (elem), h->aux);
+			action(list_elem_to_hash_elem(elem), h->aux);
 		}
 	}
 }

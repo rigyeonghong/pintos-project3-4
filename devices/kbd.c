@@ -147,7 +147,7 @@ keyboard_interrupt (struct intr_frame *args UNUSED) {
 			bool *state_var;
 		};
 
-		/* Table of shift keys. */
+		/*  of shift keys. */
 		static const struct shift_key shift_keys[] = {
 			{  0x2a, &left_shift},
 			{  0x36, &right_shift},

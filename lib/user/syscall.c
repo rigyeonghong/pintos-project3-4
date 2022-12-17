@@ -22,7 +22,8 @@ static __inline int64_t syscall (uint64_t num_, uint64_t a1_, uint64_t a2_,
 			"mov %5, %%r10\n"
 			"mov %6, %%r8\n"
 			"mov %7, %%r9\n"
-			"syscall\n"	// syscall instruction은 userprog 디렉토리에 있는 syscall_init()를 실행하고, 그 안에서 syscall_entry()로 이어진다
+			"syscall\n"	  // 어셈블리어로 syscall 호출
+
 			: "=a" (ret)
 			: "g" (num), "g" (a1), "g" (a2), "g" (a3), "g" (a4), "g" (a5), "g" (a6)
 			: "cc", "memory");
@@ -107,7 +108,7 @@ remove (const char *file) {
 
 int
 open (const char *file) {
-	return syscall1 (SYS_OPEN, file);
+	return syscall1(SYS_OPEN, file);
 }
 
 int
@@ -147,12 +148,12 @@ dup2 (int oldfd, int newfd){
 
 void *
 mmap (void *addr, size_t length, int writable, int fd, off_t offset) {
-	return (void *) syscall5 (SYS_MMAP, addr, length, writable, fd, offset);
+	return (void *)syscall5(SYS_MMAP, addr, length, writable, fd, offset);
 }
 
 void
 munmap (void *addr) {
-	syscall1 (SYS_MUNMAP, addr);
+	syscall1(SYS_MUNMAP, addr);
 }
 
 bool

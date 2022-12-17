@@ -164,10 +164,13 @@ list_tail(struct list *list)
 /* Inserts ELEM just before BEFORE, which may be either an
    interior element or a tail.  The latter case is equivalent to
    list_push_back(). */
-void list_insert(struct list_elem *before, struct list_elem *elem)
-{
+void
+list_insert (struct list_elem *before, struct list_elem *elem) {
+	// printf("is_interior: %d", is_interior(before));
+	// printf("is_tail: %d", is_tail(before));
 	ASSERT(is_interior(before) || is_tail(before));
-	ASSERT(elem != NULL);
+	ASSERT (elem != NULL);
+
 
 	elem->prev = before->prev;
 	elem->next = before;
@@ -441,9 +444,11 @@ void list_sort(struct list *list, list_less_func *less, void *aux)
 /* Inserts ELEM in the proper position in LIST, which must be
    sorted according to LESS given auxiliary data AUX.
    Runs in O(n) average case in the number of elements in LIST. */
-void list_insert_ordered(struct list *list, struct list_elem *elem,
-						 list_less_func *less, void *aux)
-{
+/* Project 1 - Priority Scheduling : cmp priority 함수 추가 */
+void
+list_insert_ordered (struct list *list, struct list_elem *elem,
+		list_less_func *less, void *aux) {
+
 	struct list_elem *e;
 
 	ASSERT(list != NULL);

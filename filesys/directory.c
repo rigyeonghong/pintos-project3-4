@@ -5,6 +5,8 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "filesys/fat.h"
+#include "filesys/fsutil.h"
 
 /* A directory. */
 struct dir {
@@ -21,6 +23,8 @@ struct dir_entry {
 
 /* Creates a directory with space for ENTRY_CNT entries in the
  * given SECTOR.  Returns true if successful, false on failure. */
+/* 지정된 섹터의 ENTERY_CNT 항목에 대한 공간이 있는 디렉터리를 만듭니다.
+   성공하면 true를 반환하고 실패하면 false를 반환합니다.*/
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) {
 	return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
@@ -46,7 +50,8 @@ dir_open (struct inode *inode) {
  * Return true if successful, false on failure. */
 struct dir *
 dir_open_root (void) {
-	return dir_open (inode_open (ROOT_DIR_SECTOR));
+	disk_sector_t root = cluster_to_sector(ROOT_DIR_CLUSTER);
+	return dir_open (inode_open (root));
 }
 
 /* Opens and returns a new directory for the same inode as DIR.
@@ -85,8 +90,8 @@ lookup (const struct dir *dir, const char *name,
 	ASSERT (dir != NULL);
 	ASSERT (name != NULL);
 
-	for (ofs = 0; inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
-			ofs += sizeof e)
+	// printf("lookup\n");
+	for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e)
 		if (e.in_use && !strcmp (name, e.name)) {
 			if (ep != NULL)
 				*ep = e;
@@ -94,6 +99,8 @@ lookup (const struct dir *dir, const char *name,
 				*ofsp = ofs;
 			return true;
 		}
+
+	// printf("ofs: %d\n", ofs);
 	return false;
 }
 

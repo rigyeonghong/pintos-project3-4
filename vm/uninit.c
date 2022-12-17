@@ -11,8 +11,8 @@
 #include "vm/vm.h"
 #include "vm/uninit.h"
 
-static bool uninit_initialize (struct page *page, void *kva);
-static void uninit_destroy (struct page *page);
+static bool uninit_initialize(struct page *page, void *kva);
+static void uninit_destroy(struct page *page);
 
 /* DO NOT MODIFY this struct */
 static const struct page_operations uninit_ops = {
@@ -23,37 +23,38 @@ static const struct page_operations uninit_ops = {
 };
 
 /* DO NOT MODIFY this function */
-void
-uninit_new (struct page *page, void *va, vm_initializer *init,
-		enum vm_type type, void *aux,
-		bool (*initializer)(struct page *, enum vm_type, void *)) {
-	ASSERT (page != NULL);
+void uninit_new(struct page *page, void *va, vm_initializer *init,
+				enum vm_type type, void *aux,
+				bool (*initializer)(struct page *, enum vm_type, void *))
+{
+	ASSERT(page != NULL);
 
-	*page = (struct page) {
+	*page = (struct page){
 		.operations = &uninit_ops,
 		.va = va,
 		.frame = NULL, /* no frame for now */
-		.uninit = (struct uninit_page) {
+		.uninit = (struct uninit_page){
 			.init = init,
 			.type = type,
 			.aux = aux,
 			.page_initializer = initializer,
-		}
-	};
+		}};
 }
 
 /* Initalize the page on first fault */
 static bool
-uninit_initialize (struct page *page, void *kva) {
+uninit_initialize(struct page *page, void *kva)
+{
 	struct uninit_page *uninit = &page->uninit;
 
 	/* Fetch first, page_initialize may overwrite the values */
 	vm_initializer *init = uninit->init;
 	void *aux = uninit->aux;
-
+	
 	/* TODO: You may need to fix this function. */
-	return uninit->page_initializer (page, uninit->type, kva) &&
-		(init ? init (page, aux) : true);
+	bool page_initialize_r = uninit->page_initializer(page, uninit->type, kva);
+	bool init_r = (init ? init(page, aux) : true);
+	return page_initialize_r && init_r;
 }
 
 /* Free the resources hold by uninit_page. Although most of pages are transmuted
@@ -64,8 +65,11 @@ uninit_initialize (struct page *page, void *kva) {
    대부분의 페이지가 다른 페이지 객체로 변환되지만 프로세스가 종료될 때 실행 중에는 참조되지 않는 uninit_page가 있을 수 있음
    호출자가 페이지를 해제 */
 static void
-uninit_destroy (struct page *page) {
+uninit_destroy(struct page *page)
+{
 	struct uninit_page *uninit UNUSED = &page->uninit;
+
 	/* TODO: Fill this function.
 	 * TODO: If you don't have anything to do, just return. */
+	//[3-2] va 관련,,?
 }

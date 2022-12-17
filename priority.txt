@@ -1,0 +1,137 @@
+----------------Priority scheduling----------------
+
+- ready list에 새로 추가된 스레드의 우선순위가 현재 cpu를 점유중인 스레드의 우선순위보다 높으면 기존 스레드를 밀어내고 cpu를 점유하도록 한다.
+- 여러 스레드가 lock, semaphore를 얻기 위해 기다릴 경우, 우선순위가 가장 높은 스레드가 cpu를 점유한다.
+
+lock이란
+공유 자원을 하나의 쓰레드가 사용하고 있을 때 다른 쓰레드가 공유 자원을 사용하지 못 하도록 제한을 거는 것이다.
+
+priority scheduling 솔루션
+1. 새로 추가된 thread가 실행 중인 thread보다 우선순위가 높은 경우 CPU를 선점하도록 하기 위해 thread_create() 함수 수정
+2. ready_list를 우선순위로 정렬하기 위해 thread_unblock(), thread_yield() 함수들을 수정하고 list_insert_ordered() 함수에 사용되는 cmp_priority() 함수를 추가한다.
+3. 새로운 thread가 생성 되거나 block 되었던 thread가 unblock 됐을 때 ready_list에 thread가 추가 된다.
+
+구현할 함수 선언
+1. void test_max_priority(void);
+/* 현재 수행중인 스레드와 가장 높은 우선순위의 스레드의 우선순위를 비교하여 스케줄링 */
+
+2. bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED); 
+/* 인자로 주어진 스레드들의 우선순위를 비교 */
+
+
+수정할 함수
+1. thread_create
+Thread의 ready_list 삽입시 현재 실행중인 thread와 우선순위를 비교하여, 새로 생성된 thread의 우선순위가 높다면 thread_yield()를 통해 CPU를 양보
+
+2. thread_unblock
+Thread가 unblock 될때 우선순위 순으로 정렬 되어 ready_list에 삽입되도록 수정
+
+3. thread_yield
+현재 thread가 CPU를 양보하여 ready_list에 삽입 될 때 우선순위 순서로 정렬되어 삽입 되도록 수정
+
+4. thread_set_priority
+스레드의 우선순위가 변경되었을때 우선순위에 따라 선점이 발생하도록 한다.
+
+추가할 함수
+1. void test_max_priority(void)
+ready_list에서 우선순위가 가장 높은 스레드와 현재 스레드의 우선순위를 비교하여 스케줄링 한다. (ready_list 가 비여있지 않은지 확인)
+
+2. bool cmp_priority()
+list_insert_ordered() 함수에서 사용 하기 위해 정렬 방법을 결정하기 위한 함수 작성
+
+
+----------------Priority scheduling and Synchronization----------------
+
+- 여러 스레드가 lock, semaphore, condition variable 을 얻기 위해 기다릴 경우 우선순위가 가장 높은 thread가 CPU를 점유 하도록 구현
+
+waiters list = pintos에서 semaphore를 대기 하고 있는 스레드들의 lis이다. FIFO로 구현
+
+Priority Scheduling-Synchronization 솔루션
+- sema_down()에서 waiters list를 우선순위로 정렬 하도록 수정
+
+Pintos의 semaphore
+semaphore 구조체 : unsigned value, struct list waiters;
+1. void sema_init(struct semaphore *sema, unsigned value) : semaphore를 주어진 value로 초기화
+2. void sema_down(struct semaphore *sema) : semaphore를 요청하고 획득했을 때 value를 1 낮춤
+3. void sema_up(struct semaphore *sema) : semaphore를 반환하고 value를 1 높임
+
+Pintos의 lock
+lock 구조체 : struct thread *holder, struct semaphore semaphore;
+void lock_init (struct lock *lock) : lock 자료구조를 초기화
+void lock_acquire (struct lock *lock) : lock을 요청
+void lock_release (struct lock *lock) : lock을 반환
+
+Pintos의 condition variable
+condition 구조체 : struct list waiters
+void cond_init(struct condition *cond) : condition variable 자료구조를 초기화
+void cond_wait(struct condition *cond, struct lock *lock) : condition variable을 통해 signal이 오는지 기다림
+void cond_signal(struct condition *cond, struct lock *lock UNUSED) : condition variable에서 기다리는 가장높은 우선순위의 스레드에 signal을 보냄
+void cond_broadcast(struct condition *cond, struct lock *lock) : condition variable에서 기다리는 모든 스레드에 signal을 보냄
+
+Condition Variable은 특정 조건을 만족하기를 기다리는 변수라는 의미이다.
+따라서 이를 이용하여 주로 thread간의 신호 전달을 위해 사용한다.
+하나의 thread가 waiting 중이면 조건을 만족한 thread에서 변수를 바꾸고 signaling을 통해 깨우는 방식이다.
+
+수정할 함수
+1. sema_down : semaphore를 얻고 waiters 리스트 삽입 시, 우선순위대로 삽입되도록 수정
+2. sema_up : 스레드가 waiters list에 있는 동안 우선순위가 변경 되었을 경우를 고려 하여 waiters list를 우선순위로 정렬한다. priority preemprion 코드 추가
+3. cond_wait : condition variable의 waiters list에 우선순위 순서로 삽입되도록 수정
+4. cond_signal : condition variable의 waiters list를 우선순위 순서로 재정렬
+
+
+추가할 함수
+1. bool cmp_sem_priority() : 첫 번째 인자의 우선순위가 두 번째 인자의 우선순위보다 높으면 1 반환, 낮으면 0 반환
+
+
+
+----------------Priority Inversion Problem----------------
+우선순위가 높은 스레드가 우선순위가 낮은 스레드를 기다리는 현상
+예시)
+우선순위가 가장높은 '상', 중간순위의 '중', 낮은순위의 '하'가 있을 때
+'하'가 세마포어를 요청했고, 세마포어를 획득 후 공유 자원을 사용하고 있는데
+'상'이 실행되었고 CPU스케줄링을 해서 '상'이 실행된다. 근데 '상'이 세마포어 요청 코드가 있어서, 세마포어를 요청한다.
+하지만 세마포어는 '하'가 가지고 있으므로 '상'은 '하'가 세마포어를 반환할 때 까지 블록되어 버린다.
+이때 '중'이 실행되면 '중'이 '하'보다 우선순위가 높으니 '중'이 실행되고 '중'이 끝날때까지 '하'는 실행되지 않아서 세마포어 반납을 하지 못함
+따라서 '중'이 다 실행하고 '하'도 공유자원을 반납한 후 '상'이 실행된다.
+
+
+ Priority Inversion Problem 솔루션
+ 1. Priority donation : Lock을 요청하고 낮은 우선순위의 스레드에게 자신의 우선순위를 기부한다.
+ 2. Multiple donation : 스레드가 두 개 이상의 lock 보유 시, 각 lock에 의해 기부 발생 가능 -> 이전 상태의 우선순의를 기억하고 있어야 함
+ 3. Nested donation : '상' 스레드가 lockB를 얻기 위해 대기, '중' 스레드는 lockB를 가지고 있고 lockA를 얻기 위해 대기, '하'스레드는 lockA 가지고 있음
+ -> '상'의 우선순위는 '중', '하'에게 모두 기부되어야 한다.
+
+
+- Priority donation 솔루션
+struct thread에 priority donation 관련 항목 추가
+1. int init_priority : donation 이후 우선순위를 초기화하기 위해 초기값 저장
+2. struct lock *wait_on_lock : 해당 스레드가 대기 하고 있는 lock자료구조의 주소를 저장
+3. struct list donations : multiple donation 을 고려하기 위해 사용
+4. struct list_elem donation_elem : multiple donation 을 고려하기 위해 사용
+
+수정할 함수
+1. init_thread : Priority donation 관련 자료구조 초기화
+2. lock_acquire : 
+해당 lock의 holder가 존재 한다면 아래 작업을 수행한다.
+- 현재 스레드의 wait_on_lock 변수에 획득 하기를 기다리는 lock의 주소를 저장
+- multiple donation을 고려하기 위해 이전상태의 우선순위를 기억, donation을 받은 스레드의 thread 구조체를 list로 관리
+- priority donation을 수행하기 위해 donate_priority() 함수 호출
+- lock을 획득 한 후 lock holder를 갱신
+3. lock_release : remove_with_lock 함수 추가, refresh_priority 함수 추가
+4. thread_set_priority : 
+donation을 고려하여 thread_set_priority() 함수를 수정한다.
+refresh_priority() 함수를 사용하여 우선순위 변경으로 인한 donation 관련 정보를 갱신한다. 
+donation_priority(), test_max_pariority() 함수를 적절히 사용하여 priority donation 을 수행하고 스케줄링 한다.
+
+추가할 함수
+1. void donate_priority(void) :  
+priority donation을 수행하는 함수를 구현한다.
+현재 스레드가 기다리고 있는 lock 과 연결된 모든 스레드들을 순회하며
+현재 스레드의 우선순위를 lock 을 보유하고 있는 스레드에게 기부 한다.
+2. void remove_with_lock(struct lock *lock) :
+lock을 해지 했을때 donations 리스트에서 해당 엔트리를 삭제 하기 위한 함수를 구현한다.
+현재 스레드의 donations 리스트를 확인하여 해지 할 lock을 보유하고 있는 엔트리를 삭제 한다.
+3. void refresh_priority(void) :
+스레드의 우선순위가 변경 되었을때 donation을 고려하여 우선순위를 다시 결정 하는 함수를 작성 한다.
+현재 스레드의 우선순위를 기부받기 전의 우선순위로 변경
+가장 우선수위가 높은 donations 리스트의 스레드와 현재 스레드의 우선순위를 비교하여 높은 값을 현재 스레드의 우선순위로 설정한다.
