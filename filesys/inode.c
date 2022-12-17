@@ -48,8 +48,8 @@ static disk_sector_t
 byte_to_sector(const struct inode *inode, off_t pos){
     ASSERT(inode != NULL);
 
-    // int jump = pos / (int)DISK_SECTOR_SIZE;
     cluster_t cur = sector_to_cluster(inode->data.start);
+    // int jump = pos / (int)DISK_SECTOR_SIZE;
     // for (int i = 0; i < jump; i++)
     // {
     //     cur = fat_get(cur);
@@ -293,14 +293,14 @@ off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size,
     off_t bytes_written = 0;
     uint8_t *bounce = NULL;
 	off_t origin_offset = offset;
+    if (inode->deny_write_cnt)
+        return 0;
     /* if (offset+size (파일이 늘어나야 하는 길이) < length
         쓰려는 섹터 = offset+size
         if 쓰려는 섹터 > 파일이 점유하고 있는 섹터 수
             섹터를 할당해와야함 -> fat_create_chain
         디스크에 쓰기
     */
-    if (inode->deny_write_cnt)
-        return 0;
     /*
     먼저 offset이 존재하는 섹터의 인덱스를 찾습니다
     (DIY한 함수 이용 - 만약 offset이 위치한 곳보다 파일 길이가 짧으면 섹터를 할당하여 파일을 연장해줌)
@@ -308,8 +308,6 @@ off_t inode_write_at(struct inode *inode, const void *buffer_, off_t size,
     */
     // cluster_t cluster_idx = fat_byte_to_cluster(inode, offset); // 오프셋이 있는 섹터의
     // disk_sector_t sector_idx = cluster_to_sector(cluster_idx);
-    // printf("[inod_write_at] cluster_idx %d\n", cluster_idx);
-    // printf("[inod_write_at] sector_idx  %d\n", sector_idx);
 
     while (size > 0){// 쓸 섹터, 섹터 내 시작 바이트 오프셋
 		/* Sector to write, starting byte offset within sector. */
