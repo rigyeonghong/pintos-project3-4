@@ -86,13 +86,18 @@ filesys_create (const char *name, off_t initial_size) {
 struct file *
 filesys_open(const char *name)
 {
-	struct dir *dir = dir_open_root();
+	struct dir *dir = dir_open_root();// 루트 디렉토리를 연다
+
 	struct inode *inode = NULL;
 
-	if (dir != NULL)
-		dir_lookup(dir, name, &inode);
+		if (dir != NULL){
+		// printf("dir not NULL\n");
+		dir_lookup(dir, name, &inode); //루트 디렉토리 안에서 name에 해당하는 파일을 찾아서 inode에 넣어준다
+	}
 	dir_close(dir);
+	// 루트 디렉토리를 닫는다
 
+	// 받은 루트 디렉토리의 아이노드를 이용해서 파일 name을 연다
 	return file_open(inode);
 }
 

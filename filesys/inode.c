@@ -139,6 +139,51 @@ bool inode_create(disk_sector_t sector, off_t length){
     return success;
 }
 
+// /* Initializes an inode with LENGTH bytes of data and
+//  * writes the new inode to sector SECTOR on the file system
+//  * disk.
+//  * Returns true if successful.
+//  * Returns false if memory or disk allocation fails. */
+// bool inode_create(disk_sector_t sector, off_t length)
+// {
+// 	struct inode_disk *disk_inode = NULL;
+// 	bool success = false;
+
+// 	ASSERT(length >= 0);
+
+// 	/* If this assertion fails, the inode structure is not exactly
+// 	 * one sector in size, and you should fix that. */
+// 	ASSERT(sizeof *disk_inode == DISK_SECTOR_SIZE);
+
+// 	disk_inode = calloc(1, sizeof *disk_inode);
+// 	if (disk_inode != NULL)
+// 	{
+// 		size_t sectors = bytes_to_sectors(length); // 주어진 파일 길이를 위한 섹터 수를 계산
+// 		disk_inode->length = length;
+// 		disk_inode->magic = INODE_MAGIC;
+
+// 		cluster_t cur = 0;
+// 		static char zeros[DISK_SECTOR_SIZE];
+
+// 		for (size_t i = 0; i < sectors; i++)
+// 		{
+// 			if (cur == 0){
+// 				cur = fat_create_chain(0); // 새로운 체인 만들기
+// 				disk_inode->start = cluster_to_sector(cur); // 체인의 시작점 저장하기
+// 			}
+// 			else
+// 				cur = fat_create_chain(cur);
+
+// 			disk_write(filesys_disk, cluster_to_sector(cur), zeros);
+// 		}
+// 		disk_write(filesys_disk, sector, disk_inode); // 디스크에 아이노드 내용 기록하기
+// 		success = true;
+
+// 		free(disk_inode);
+// 	}
+// 	return success;
+// }
+
 
 /* Reads an inode from SECTOR
  * and returns a `struct inode' that contains it.
