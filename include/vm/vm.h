@@ -56,6 +56,7 @@ struct page
 	 * Each function automatically detects the current union */
 	union
 	{
+
 		struct uninit_page uninit;
 		struct anon_page anon;
 		struct file_page file;
@@ -81,6 +82,7 @@ struct list lru_list; // 할당된 물리 프레임들을 관리하는 리스트
 struct lock lru_list_lock;
 struct list_elem *lru_clock;
 
+
 /* The function table for page operations.
  * This is one way of implementing "interface" in C.
  * Put the table of "method" into the struct's member, and
@@ -90,6 +92,7 @@ struct page_operations
 	bool (*swap_in)(struct page *, void *);
 	bool (*swap_out)(struct page *);
 	void (*destroy)(struct page *);
+
 	enum vm_type type;
 };
 
@@ -112,6 +115,7 @@ struct mmap_file {
 	struct file *file; //매핑하는 파일의 오브젝트
 	struct list_elem elem; //mmap_file들의 리스트 연결을 위한 구조체, 리스트 헤드는 struct thread의 mmap_list
 	struct list page_list; //mmap_file에 해당하는 모든 페이지들의 리스트
+
 };
 
 /* typedef struct hash supplemental_page_table; */
@@ -152,3 +156,4 @@ static struct frame *vm_evict_frame(void);
 void supplemental_copy_entry(struct hash_elem *e, void *aux);
 void supplemental_destroy_entry(struct hash_elem *e, void *aux);
 #endif /* VM_VM_H */
+

@@ -9,6 +9,9 @@ int process_exec (void *f_name);
 int process_wait (tid_t);
 void process_exit (void);
 void process_activate (struct thread *next);
+void argument_stack(char **arg_list,int idx,struct intr_frame *if_);
+/* Project 2 file descriptor */
+struct file *process_get_file(int fd);
 
 int process_add_file(struct file *f);
 struct file *process_get_file(int fd);
