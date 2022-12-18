@@ -13,6 +13,8 @@
         "uninit.h": "c",
         "malloc.h": "c",
         "inode.h": "c",
-        "lib.h": "c"
+        "lib.h": "c",
+        "string.h": "c",
+        "directory.h": "c"
     }
 }

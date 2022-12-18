@@ -19,6 +19,8 @@
 #include "threads/vaddr.h"
 #include "filesys/directory.h"
 
+
+
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 struct page * check_address(void *addr);
@@ -49,7 +51,7 @@ bool chdir(const char *dir);
 bool mkdir(const char *dir);
 bool readdir(int fd, char *name);
 bool isdir(int fd);
-int inumber(int fd);
+struct cluster_t *inumber(int fd);
 
 /* System call.
  *
@@ -149,7 +151,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
             f->R.rax = mkdir(f->R.rdi);
             break;
         case SYS_READDIR:
-            f->R.rax = readdir(f->R.rdi, f->R.rsi); // 수정필요?!
+            f->R.rax = readdir(f->R.rdi, f->R.rsi); 
             break;
         case SYS_INUMBER:
             f->R.rax = inumber(f->R.rdi);
@@ -485,38 +487,55 @@ bool mkdir(const char *dir)
 
 // fd로부터 하나의 디렉토리 엔트리를 읽어 name에 파일 이름 저장
 
-// 디력토리 내 파일 존재 여부 확인
+// 디렉토리 내 파일 존재 여부 확인
 bool readdir(int fd, char *name)
 {
-	if(name == NULL){
-		return false;
-	}
+    if(name == NULL){
+        return false;
+    }
 
     /* fd 리스트에서 fd에 대한 file정보를 얻어옴 */
+    struct file *f = process_get_file(fd);
+    if(f == NULL)
+        return false;
+    
     /* fd의 file->inode가 디렉터리인지 검사 */
+    if(!inode_is_dir(file_get_inode(f)))
+        return false;
+
     /* p_file을 dir 자료구조로 포인팅 */
+    struct dir *p_file = f;
+    if (p_file->pos == 0)
+        dir_seek(p_file, 2 * sizeof(struct dir_entry));
+
     /* 디렉터리의 엔트에서 “.”,”..” 이름을 제외한 파일이름을 name에 저장*/
-    return;
+    bool result = dir_readdir(p_file, name);
+    return result;
 }
 
 // Inode의 디렉토리 여부 판단
 bool isdir(int fd)
 {
     // fd 리스트에서 fd에 대한 file 정보를 얻어옴
-	struct file *f = find_file_by_fd(fd);
-	if (f == NULL)
-		return false;
-	
-    // fd의 in - memory inode가 디렉터리 인지 판단하여 성공여부 반환 
+    struct file *f = process_get_file(fd);
+    if (f == NULL)
+        return false;
+    
+    // fd의 in-memory inode가 디렉터리 인지 판단하여 성공여부 반환 
     return inode_is_dir(file_get_inode(f));
 }
 
 // fd와 관련된 파일 또는 디렉터리의 inode number를 반환
-int inumber(int fd)
+
+// file의 inode가 기록된 sector 찾기
+struct cluster_t *inumber(int fd)
 {
+    struct file *f = process_get_file(fd);
     /* fd 리스트에서 fd에 대한 file 정보를 얻어옴
        fd의 on-disk inode 블록 주소를 반환
        inode_get_inumber() : in-memory inode의 sector 값 반환*/
-    return;
-}
+    if (f ==NULL)
+        return false;
 
+    return inode_get_inumber(file_get_inode(f));
+}
