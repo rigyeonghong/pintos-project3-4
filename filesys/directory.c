@@ -116,10 +116,12 @@ lookup (const struct dir *dir, const char *name,
 /* Searches DIR for a file with the given NAME
  * and returns true if one exists, false otherwise.
  * On success, sets *INODE to an inode for the file, otherwise to
- * a null pointer.  The caller must close *INODE. */
-/* DIR에서 지정된 이름의 파일을 검색하고 파일이 있으면 true를 반환하고, 그렇지 않으면 false를 반환 
-   성공하면 *INODE를 파일의 inode로 설정하고, 그렇지 않으면 null 포인터로 설정 
-   호출자는 *INODE를 닫아야함 */
+ * a null pointer.  The caller must close *INODE. 
+ name에 해당하는 파일을 dir에서 찾음. 성공하면 ture, 실패하면 false 반환
+ 성공하는 경우, *inode를 파일의 아이노드로 설정, 실패하면 null로 설정
+ 함수 호출자는 *inode를 반드시 닫아야 함.
+ */
+
 bool
 dir_lookup (const struct dir *dir, const char *name,
 		struct inode **inode) {
