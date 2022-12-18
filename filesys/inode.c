@@ -70,7 +70,6 @@ byte_to_sector(const struct inode *inode, off_t pos){
     return cluster_to_sector(cur);
 }
 
-
 /* List of open inodes, so that opening a single inode twice
  * returns the same `struct inode'. */
 static struct list open_inodes;
