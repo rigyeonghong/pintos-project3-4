@@ -17,6 +17,7 @@
 #include "threads/mmu.h"
 #include "vm/vm.h"
 #include "threads/vaddr.h"
+#include "filesys/directory.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -43,6 +44,12 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset);
 void munmap(void *addr);
 
 void check_valid_buffer(void* buffer, unsigned size, void* rsp, bool to_write);
+
+bool chdir(const char *dir);
+bool mkdir(const char *dir);
+bool readdir(int fd, char *name);
+bool isdir(int fd);
+int inumber(int fd);
 
 /* System call.
  *
@@ -130,6 +137,21 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 		case SYS_MUNMAP:
 			munmap(f->R.rdi);
+			break;
+		case SYS_ISDIR:
+			f->R.rax = isdir(f->R.rdi);
+			break;
+		case SYS_CHDIR:
+			f->R.rax = chdir(f->R.rdi);
+			break;
+		case SYS_MKDIR:
+			f->R.rax = mkdir(f->R.rdi);
+			break;
+		case SYS_READDIR:
+			f->R.rax = readdir(f->R.rdi, f->R.rsi); // 수정필요?!
+			break;
+		case SYS_INUMBER:
+			f->R.rax = inumber(f->R.rdi);
 			break;
 		default:
 			exit(-1);
@@ -394,4 +416,93 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 void munmap(void *addr)
 {
 	do_munmap(addr);
+}
+
+// dir의 디렉터리 정보를 얻어옴
+// 스레드의 현재 작업 디렉터리의 정보를 메모리에서 해지 후, dir로 현재 작 업 디렉터리 변경
+
+// 현재 작업 디렉토리를 변경
+bool chdir(const char *dir){ // 현 디렉토리 경로를 인자로 받음
+	if (dir == NULL){
+		return false;
+	}
+	
+	// name의 파일 경로를 cp_name에 복사
+	char *cp_name = (char *)malloc(strlen(dir) +1);
+	strlcpy(cp_name, dir, strlen(dir) + 1);
+
+	struct dir *chdir = NULL;
+
+	if (cp_name[0] == '/'){ // 절대 경로로 디렉토리가 되있다면
+		chdir = dir_open_root();
+	}else{ // 상대 경로로 디렉토리가 되있다면
+		chdir = dir_reopen(thread_current()->cur_dir);
+	}
+
+	/* dir 경로를 분석하여 디렉터리를 반환 */ 
+	char *token, *savePtr;
+	token = strtok_r(cp_name, "/", &savePtr); // cp_name안에서 "/"만나면 분리 후 (앞까지는 token에 저장) savePtr에 위치 저장
+	
+	struct inode *inode = NULL;
+	while (token != NULL){
+		//dir에서 token 이름의 파일 검색해 inode의 정보를 저장
+		if (!dir_lookup(chdir, token, &inode)){ // chdir에서 지정된 이름의 파일 검색 후 있으면 true를 반환 && *inode를 inode로 설정
+			dir_close(chdir); // 호출자는 *inode 닫아야함
+			return false;
+		}
+
+		// inode가 파일인 경우 NULL 반환
+		if(!inode_is_dir(inode)){
+			dir_close(chdir);
+			return false;
+		}
+
+		//dir의 디렉터리 정보 메모리에서 해지
+		dir_close(chdir);
+
+		// inode의 디렉터리 정보를 dir에 저장
+		chdir = dir_open(inode);
+
+		// token에 검색할 경로 이름 저장
+		token = strtok_r(NULL, "/", &savePtr); 
+	}
+
+	/* 스레드의 현재 작업 디렉터리를 변경 */
+	dir_close(thread_current()->cur_dir);
+	thread_current()->cur_dir = chdir;
+	free(cp_name);
+	return true; 
+}
+
+// dir 이름의 디렉토리 생성
+bool mkdir(const char *dir)
+{
+	return filesys_create_dir(dir);
+}
+
+// fd로부터 하나의 디렉토리 엔트리를 읽어 name에 파일 이름 저장
+bool readdir(int fd, char *name)
+{
+	/* fd 리스트에서 fd에 대한 file정보를 얻어옴 */
+	/* fd의 file->inode가 디렉터리인지 검사 */
+	/* p_file을 dir 자료구조로 포인팅 */
+	/* 디렉터리의 엔트에서 “.”,”..” 이름을 제외한 파일이름을 name에 저장*/
+	return;
+}
+
+// Inode의 디렉토리 여부 판단
+bool isdir(int fd)
+{
+	// fd 리스트에서 fd에 대한 file 정보를 얻어옴
+	// fd의 in - memory inode가 디렉터리 인지 판단하여 성공여부 반환 
+	return;
+}
+
+// fd와 관련된 파일 또는 디렉터리의 inode number를 반환
+int inumber(int fd)
+{
+	/* fd 리스트에서 fd에 대한 file 정보를 얻어옴
+	   fd의 on-disk inode 블록 주소를 반환
+	   inode_get_inumber() : in-memory inode의 sector 값 반환*/
+	return;
 }

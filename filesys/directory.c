@@ -27,8 +27,7 @@ struct dir_entry {
    성공하면 true를 반환하고 실패하면 false를 반환합니다.*/
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) {
-	// printf("[dir_create] sector : %d\n", sector);
-	return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+	return inode_create (sector, entry_cnt * sizeof (struct dir_entry), 1);
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -59,12 +58,15 @@ dir_open_root (void) {
 
 /* Opens and returns a new directory for the same inode as DIR.
  * Returns a null pointer on failure. */
+/* DIR과 동일한 inode에 대한 새 디렉토리를 열고 반환합니다.
+* 실패 시 null 포인터를 반환 */
 struct dir *
 dir_reopen (struct dir *dir) {
 	return dir_open (inode_reopen (dir->inode));
 }
 
 /* Destroys DIR and frees associated resources. */
+// DIR을 삭제하고 연결된 리소스를 확보
 void
 dir_close (struct dir *dir) {
 	if (dir != NULL) {
@@ -227,6 +229,8 @@ done:
 /* Reads the next directory entry in DIR and stores the name in
  * NAME.  Returns true if successful, false if the directory
  * contains no more entries. */
+/* DIR의 다음 dir_entry를 읽고 이름을 NAME에 저장합니다.
+성공하면 true를 반환하고, 디렉터리에 더 이상 항목이 없으면 false를 반환 */
 bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1]) {
 	struct dir_entry e;
