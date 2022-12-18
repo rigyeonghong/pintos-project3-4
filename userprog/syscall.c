@@ -17,6 +17,7 @@
 #include "threads/mmu.h"
 #include "vm/vm.h"
 #include "threads/vaddr.h"
+#include "filesys/directory.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -394,4 +395,33 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 void munmap(void *addr)
 {
 	do_munmap(addr);
+}
+
+bool chdir(const char *dir)
+{
+	/* dir 경로를 분석하여 디렉터리를 반환 */ 
+	/* 스레드의 현재 작업 디렉터리를 변경 */
+	return;
+}
+
+bool mkdir(const char *dir)
+{
+	return;
+}
+
+bool readdir(int fd, char name[READDIR_MAX_LEN + 1])
+{
+	return;
+}
+
+bool isdir(int fd)
+{
+	// fd 리스트에서 fd에 대한 file 정보를 얻어옴
+	// fd의 in - memory inode가 디렉터리 인지 판단하여 성공여부 반환 
+	return;
+}
+
+int inumber(int fd)
+{
+	return;
 }
