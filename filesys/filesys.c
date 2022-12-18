@@ -58,6 +58,9 @@ void filesys_done(void)
  * Returns true if successful, false otherwise.
  * Fails if a file named NAME already exists,
  * or if internal memory allocation fails. */
+/* 지정된 INITIAL_SIZE를 사용하여 NAME이라는 이름의 파일을 만듭니다.
+* 성공하면 true를 반환하고, 그렇지 않으면 false를 반환합니다.
+* 이름이 NAME인 파일이 이미 있거나 내부 메모리 할당에 실패한 경우 실패 */
 bool
 filesys_create (const char *name, off_t initial_size) {
 	disk_sector_t inode_sector = 0;
@@ -126,6 +129,7 @@ do_format(void)
 
 	/* Root Directory 생성 */
 	disk_sector_t root = cluster_to_sector(ROOT_DIR_CLUSTER);
+
 	if (!dir_create(root, 16))
 		PANIC("root directory creation failed");
 
