@@ -100,19 +100,7 @@ bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir){
         size_t sectors = bytes_to_sectors(length); // 주어진 파일 길이를 위한 섹터 수를 계산
         disk_inode->length = length; 
         disk_inode->magic = INODE_MAGIC;
-
-		/* [DR] inode 생성 시, struct inode_disk에 추가한 파일,디렉터리 구분을 위한 필드를 is_dir인자 값으로 설정 */
-
-		// for (size_t i = 0; i < sectors; i++){
-        //     if (cur == 0){
-        //         cur = fat_create_chain(0); // 새로운 체인 만들기
-        //         disk_inode->start = cluster_to_sector(cur); // 체인의 시작점 저장하기
-        //     }else
-        //         cur = fat_create_chain(cur);
-
-        //     disk_write(filesys_disk, cluster_to_sector(cur), zeros);
-        // }
-        // disk_write(filesys_disk, sector, disk_inode); // 디스크에 아이노드 내용 기록하기
+        disk_inode->isdir = is_dir;
 		
 		/* data cluster allocation */
 		if (start_clst = fat_create_chain(0)){		// 새로운 체인 만들고
@@ -447,7 +435,15 @@ off_t inode_length(const struct inode *inode)
 
 bool inode_is_dir(const struct inode *inode){
 	bool result;
-	/* inode_disk 자료구조를 메모리에 할당 */
-	/* in-memory inode의 on-disk inode를 읽어 inode_disk에 저장 */ /* on-disk inode의 is_dir을 result에 저장하여 반환 */
+
+    struct inode_disk *on_disk_inode = calloc(1, sizeof *inode_disk);
+
+    disk_read(filesys_disk, inode->sector, on_disk_inode);
+
+    result = on_disk_inode->isdir;
+    free(on_disk_inode);
+
+    /* inode_disk 자료구조를 메모리에 할당 */
+    /* in-memory inode의 on-disk inode를 읽어 inode_disk에 저장 */ /* on-disk inode의 is_dir을 result에 저장하여 반환 */
 	return result;
 }

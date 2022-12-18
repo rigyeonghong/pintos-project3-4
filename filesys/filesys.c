@@ -8,6 +8,7 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "devices/disk.h"
+#include "threads/thread.h"
 
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
@@ -95,22 +96,24 @@ filesys_create (const char *name, off_t initial_size) {
 struct file *
 filesys_open(const char *name)
 {
-	char *cp_name;
-	char *file_name;
+	char *cp_name = (char *)malloc(strlen(name) + 1);
+	char *file_name = (char *)malloc(strlen(name) + 1);
 	struct inode *inode = NULL;
+	struct dir *dir = NULL;
 
 	/*[DR] name의 파일경로를 cp_name에 복사, cp_name의 경로를 분석하여 파일명을 file_name에 저장 */
-	strlcpy(cp_name, name, sizeof name);
-	struct dir *dir = parse_path(cp_name, file_name);
+	strlcpy(cp_name, name, strlen(name) + 1);
+	dir = parse_path(cp_name, file_name);
 
 	/*[DR] 디렉토리 엔트리에서 file_name을 검색하도록 수정 */
 	if (dir != NULL)
 		dir_lookup(dir, file_name, &inode); 
 
-	dir_close(dir);
-	// 루트 디렉토리를 닫는다
+	dir_close(dir); // 디렉토리를 닫는다
+	free(cp_name);
+	free(file_name);
 
-	// 받은 루트 디렉토리의 아이노드를 이용해서 파일 name을 연다
+	// 받은 디렉토리의 아이노드를 이용해서 파일을 연다
 	return file_open(inode);
 }
 
@@ -120,7 +123,7 @@ filesys_open(const char *name)
  * or if an internal memory allocation fails. */
 bool filesys_remove(const char *name)
 {
-	/* 한토스 565p
+	/* [DR] 한토스 565p
 	1. root 디렉터리에 파일 생성을 name 경로에 파일 생성하도록 변경
 		- 생성하고자 하는 파일경로인 name을 cp_name에 복사
 		- 파일 생성시 절대, 상대경로를 분석하여 디렉토리에 파일을 생성하도록 수정 
@@ -167,26 +170,66 @@ bool filesys_remove(const char *name)
 	printf("done.\n");
 }
 
+
+/* parse_path : *path_name을 분석하여 작업하는 디렉터리의 포인터를 반환, 파일 또는 디렉터리의 이름을 *file_name에 저장
+- path_name: ‘/’로의 시작의 여부에 따라 절대, 상대경로 구분
+- strtok_r() 함수를 이용하여 path_name의 디렉터리 정보와 파일 이름 저장
+- file_name에 파일 이름 저장
+- dir로 오픈된 디렉터리를 포인팅
+*/
 struct dir *parse_path(char *path_name, char *file_name)
 {
 	struct dir *dir;
+	struct inode *inode = NULL;
+
 	if (path_name == NULL || file_name == NULL)
 		goto fail;
 	if (strlen(path_name) == 0)
-		return NULL;
-	/* PATH_NAME의 절대/상대경로에 따른 디렉터리 정보 저장 (구현)*/ char *token, *nextToken, *savePtr;
+		goto fail;
+
+	/* path_name의 절대/상대경로에 따른 디렉터리 정보 저장*/ 
+	if (path_name[0] == '/'){
+		dir = dir_open_root();
+	}
+	else{
+		dir = dir_reopen(thread_current()->cur_dir);
+	}
+
+	char *token, *nextToken, *savePtr;
 	token = strtok_r(path_name, "/", &savePtr);
 	nextToken = strtok_r(NULL, "/", &savePtr);
 
+	/* "/"를 오픈하는 경우 */
+	if (token == NULL){
+		token = (char *)malloc(2);
+		strlcpy(token, ".", 2);
+	}
+
 	while (token != NULL && nextToken != NULL)
 	{
-		/* dir에서 token이름의 파일을 검색하여 inode의 정보를 저장*/ /* inode가 파일일 경우 NULL 반환 */
-		/* dir의 디렉터리 정보를 메모리에서 해지 */
-		/* inode의 디렉터리 정보를 dir에 저장 */
-		/* token에 검색할 경로 이름 저장 */
-	}
-	/* token의 파일 이름을 file_name에 저장
-	/* dir 정보 반환 */
+		/* dir에서 token이름의 파일을 검색하여 inode의 정보를 저장*/
+		if(!dir_lookup(dir, token, &inode)){
+				dir_close(dir);
+				goto fail;
+		}
 
-	fail:
+		/* inode가 파일일 경우 NULL 반환 */
+		if(!inode_is_dir(inode)){
+			dir_close(dir);
+			inode_close(inode);
+			goto fail;
+		}
+
+		dir_close(dir); // dir의 디렉터리 정보를 메모리에서 해지
+		dir = dir_open(inode); // inode에 해당하는 디렉터리 정보를 dir에 저장
+
+		token = nextToken; // token에 검색할 다음 경로이름 저장
+		nextToken = strtok_r(NULL, "/", &savePtr);
+	}
+	strlcpy(file_name, token, strlen(token) + 1); //token의 파일 이름을 file_name에 저장 */
+
+	return dir; // dir 정보 반환 
+
+	fail: 
+		return NULL;
 }
