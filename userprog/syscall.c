@@ -433,7 +433,7 @@ bool chdir(const char *dir){ // 현 디렉토리 경로를 인자로 받음
 
     struct dir *chdir = NULL;
 
-    if (cp_name[0] == '/'){ /s/ 절대 경로로 디렉토리가 되있다면
+    if (cp_name[0] == '/'){ // 절대 경로로 디렉토리가 되있다면
         chdir = dir_open_root();
     }else{ // 상대 경로로 디렉토리가 되있다면
         chdir = dir_reopen(thread_current()->cur_dir);
@@ -477,12 +477,20 @@ bool chdir(const char *dir){ // 현 디렉토리 경로를 인자로 받음
 // dir 이름의 디렉토리 생성
 bool mkdir(const char *dir)
 {
+    // lock_acquire(&filesys_lock);
+    // lock_release(&filesys_lock);
     return filesys_create_dir(dir);
 }
 
 // fd로부터 하나의 디렉토리 엔트리를 읽어 name에 파일 이름 저장
+
+// 디력토리 내 파일 존재 여부 확인
 bool readdir(int fd, char *name)
 {
+	if(name == NULL){
+		return false;
+	}
+
     /* fd 리스트에서 fd에 대한 file정보를 얻어옴 */
     /* fd의 file->inode가 디렉터리인지 검사 */
     /* p_file을 dir 자료구조로 포인팅 */
@@ -494,8 +502,12 @@ bool readdir(int fd, char *name)
 bool isdir(int fd)
 {
     // fd 리스트에서 fd에 대한 file 정보를 얻어옴
+	struct file *f = find_file_by_fd(fd);
+	if (f == NULL)
+		return false;
+	
     // fd의 in - memory inode가 디렉터리 인지 판단하여 성공여부 반환 
-    return;
+    return inode_is_dir(file_get_inode(f));
 }
 
 // fd와 관련된 파일 또는 디렉터리의 inode number를 반환
