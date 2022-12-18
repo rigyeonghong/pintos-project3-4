@@ -233,3 +233,12 @@ struct dir *parse_path(char *path_name, char *file_name)
 	fail: 
 		return NULL;
 }
+
+bool filesys_create_dir(const char *name)
+{
+	/* name 경로 분석 */
+	/* bitmap에서 inode sector번호 할당 */
+	/* 할당받은 sector에 file_name의 디렉터리 생성 */
+	/* 디렉터리 엔트리에 file_name의 엔트리 추가 */
+	/* 디렉터리 엔트리에 '.', '..' 파일의 엔트리 추가 */
+}
