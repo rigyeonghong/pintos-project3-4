@@ -181,13 +181,21 @@ fat_create_chain (cluster_t clst) {
     /* clst(클러스터 인덱싱 번호)로 특정된 클러스터의 뒤에 클러스터를 추가하여 체인을 확장합니다. 
     clst가 0이면 새 체인을 만듭니다. 
     새로 할당된 클러스터의 번호를 반환합니다. */
+    // printf("[1]\n");
 
-    for(cluster_t i= 2 ; i <= (fat_fs->bs.fat_sectors*128); i++){
-        cluster_t value = fat_get(i); // fat[i] 확인 
+    for(cluster_t i= 2 ; i <= (fat_fs->fat_length); i++){
+        cluster_t value = fat_get(i); // fat[i] 확인
+        // printf("[2]\n");
         if(value == 0){ // 만약에 i번째 클러스터가 비어 있다면
+            // printf("[3]\n");
             fat_put(i, EOChain); // 새로운 클러스터 할당
-            if (clst != 0) // clst가 0이 아니면
+            // printf("[4]\n");
+            if (clst != 0){ // clst가 0이 아니면
+                // printf("[5], clst:%d, i:%d\n", clst, i);
                 fat_put(clst, i); // 원래 체인에 새로 할당한 클러스터 번호를 넣어줌
+                // printf("[6]\n");
+            }
+            // printf("[7]\n");
             return i; 
         }
     }    
