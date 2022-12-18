@@ -18,7 +18,8 @@ struct inode_disk
     disk_sector_t start;
     off_t length;         /* File size in bytes. */
     unsigned magic;       /* Magic number. */
-    uint32_t unused[125]; /* Not used. */
+	uint32_t isdir; /* [DR] file = 0, dir = 1 */
+	uint32_t unused[124]; /* Not used. */
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -84,7 +85,8 @@ void inode_init(void){
  * 파일 시스템 디스크의 섹터에 새 inode를 씁니다.
  * 성공하면 true를 반환합니다.
  * 메모리 또는 디스크 할당에 실패하면 false를 반환합니다. */
-bool inode_create(disk_sector_t sector, off_t length){
+// [DR] inode_create : is dir 변수 받도록 수정
+bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir){
     struct inode_disk *disk_inode = NULL;
     bool success = false;
 	cluster_t start_clst;
@@ -99,7 +101,9 @@ bool inode_create(disk_sector_t sector, off_t length){
         disk_inode->length = length; 
         disk_inode->magic = INODE_MAGIC;
 
-        // for (size_t i = 0; i < sectors; i++){
+		/* [DR] inode 생성 시, struct inode_disk에 추가한 파일,디렉터리 구분을 위한 필드를 is_dir인자 값으로 설정 */
+
+		// for (size_t i = 0; i < sectors; i++){
         //     if (cur == 0){
         //         cur = fat_create_chain(0); // 새로운 체인 만들기
         //         disk_inode->start = cluster_to_sector(cur); // 체인의 시작점 저장하기
@@ -439,4 +443,11 @@ void inode_allow_write(struct inode *inode)
 off_t inode_length(const struct inode *inode)
 {
     return inode->data.length;
+}
+
+bool inode_is_dir(const struct inode *inode){
+	bool result;
+	/* inode_disk 자료구조를 메모리에 할당 */
+	/* in-memory inode의 on-disk inode를 읽어 inode_disk에 저장 */ /* on-disk inode의 is_dir을 result에 저장하여 반환 */
+	return result;
 }

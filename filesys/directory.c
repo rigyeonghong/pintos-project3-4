@@ -27,7 +27,7 @@ struct dir_entry {
    성공하면 true를 반환하고 실패하면 false를 반환합니다.*/
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) {
-	return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+	return inode_create (sector, entry_cnt * sizeof (struct dir_entry), 1);
 }
 
 /* Opens and returns the directory for the given INODE, of which
