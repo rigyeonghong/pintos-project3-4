@@ -56,4 +56,8 @@ off_t inode_length (const struct inode *);
 bool inode_is_dir(const struct inode *);
 bool link_inode_create (disk_sector_t sector, char* path_name);
 
+bool inode_create_link(disk_sector_t sector, char *path_name);
+bool inode_is_link(const struct inode *inode);
+char *inode_get_link_name(const struct inode *inode);
+
 #endif /* filesys/inode.h */

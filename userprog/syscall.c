@@ -163,9 +163,9 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	case SYS_INUMBER:
 		f->R.rax = inumber(f->R.rdi);
 		break;
-	// case SYS_SYMLINK:
-	// 	f->R.rax = symlink(f->R.rdi, f->R.rsi);
-	// 	break;
+	case SYS_SYMLINK:
+		f->R.rax = symlink(f->R.rdi, f->R.rsi);
+		break;
 	default:
 		exit(-1);
 		break;
@@ -631,3 +631,17 @@ struct cluster_t *inumber(int fd)
 
 // 	return success - 1;
 // }
+
+int symlink(const char *target, const char *linkpath)
+{
+	char *copy_linkpath = (char *)malloc(strlen(linkpath) + 1);
+	strlcpy(copy_linkpath, linkpath, strlen(linkpath) + 1);
+
+	// lock_acquire(&file_lock);
+	int result = filesys_create_link(target, copy_linkpath);
+	// lock_release(&file_lock);
+
+	free(copy_linkpath);
+
+	return result;
+}

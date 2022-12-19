@@ -83,6 +83,7 @@ bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir)
         disk_inode->length = length;
         disk_inode->magic = INODE_MAGIC;
         disk_inode->isdir = is_dir;
+        disk_inode->islink = false;
 
         /* data cluster allocation */
         if (start_clst = fat_create_chain(0))
@@ -407,37 +408,75 @@ bool inode_is_dir(const struct inode *inode)
 }
 
 // link file 만드는 함수
-bool link_inode_create (disk_sector_t sector, char* path_name) {
+// bool link_inode_create (disk_sector_t sector, char* path_name) {
 
+// 	struct inode_disk *disk_inode = NULL;
+// 	bool success = false;
+
+// 	ASSERT (strlen(path_name) >= 0);
+
+// 	/* If this assertion fails, the inode structure is not exactly
+// 	 * one sector in size, and you should fix that. */
+// 	ASSERT (sizeof *disk_inode == DISK_SECTOR_SIZE);
+
+// 	disk_inode = calloc (1, sizeof *disk_inode);
+// 	if (disk_inode != NULL) {
+// 		disk_inode->length = strlen(path_name) + 1;
+// 		disk_inode->magic = INODE_MAGIC;
+
+//         // link file 여부 추가
+//         disk_inode->isdir = 0;
+//         disk_inode->islink = 1;
+
+//         strlcpy(disk_inode->link_name, path_name, strlen(path_name) + 1);
+
+//         cluster_t cluster = fat_create_chain(0);
+//         if(cluster)
+//         {
+//             disk_inode->start = cluster;
+//             disk_write (filesys_disk, cluster_to_sector(sector), disk_inode);
+//             success = true;
+//         }
+
+// 		free (disk_inode);
+// 	}
+// 	return success;
+// }
+
+bool inode_create_link(disk_sector_t sector, char *path_name)
+{
 	struct inode_disk *disk_inode = NULL;
-	bool success = false;
+	cluster_t start_clst;
 
-	ASSERT (strlen(path_name) >= 0);
+	ASSERT(sizeof *disk_inode == DISK_SECTOR_SIZE);
 
-	/* If this assertion fails, the inode structure is not exactly
-	 * one sector in size, and you should fix that. */
-	ASSERT (sizeof *disk_inode == DISK_SECTOR_SIZE);
+	disk_inode = calloc(1, sizeof *disk_inode);
+	if (disk_inode == NULL)
+		return false;
 
-	disk_inode = calloc (1, sizeof *disk_inode);
-	if (disk_inode != NULL) {
-		disk_inode->length = strlen(path_name) + 1;
-		disk_inode->magic = INODE_MAGIC;
+	disk_inode->length = 0;
+	disk_inode->isdir = 0;
+	disk_inode->islink = 1;
+	disk_inode->magic = INODE_MAGIC;
 
-        // link file 여부 추가
-        disk_inode->isdir = 0;
-        disk_inode->islink = 1;
+	strlcpy(disk_inode->link_name, path_name, strlen(path_name) + 1);
 
-        strlcpy(disk_inode->link_name, path_name, strlen(path_name) + 1);
+	if (start_clst = fat_create_chain(0))
+		disk_inode->start = cluster_to_sector(start_clst);
 
-        cluster_t cluster = fat_create_chain(0);
-        if(cluster)
-        {
-            disk_inode->start = cluster;
-            disk_write (filesys_disk, cluster_to_sector(sector), disk_inode);
-            success = true;
-        }
+	disk_write(filesys_disk, sector, disk_inode);
 
-		free (disk_inode);
-	}
-	return success;
+	free(disk_inode);
+
+	return true;
+}
+
+bool inode_is_link(const struct inode *inode)
+{
+	return inode->data.islink;
+}
+
+char *inode_get_link_name(const struct inode *inode)
+{
+	return inode->data.link_name;
 }
