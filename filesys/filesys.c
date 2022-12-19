@@ -161,22 +161,20 @@ filesys_open(const char *name)
 	strlcpy(cp_name, name, strlen(name) + 1);
 	dir = parse_path(cp_name, file_name);
 
-	// if (dir==NULL){
-	// 	return NULL;
-	// }
+	if (dir==NULL){
+		return NULL;
+	}
 
-	// printf("[filesys_open] file_name : %p\n", file_name);
+	// printf("[filesys_open] file_name : %s\n", file_name);
 	// printf("[filesys_open] dir : %p\n", dir);
 	if (dir->inode->removed == true){
 		return NULL;
 	}
 	// dir_read(dir);
-	int success;
 	/*[DR] 디렉토리 엔트리에서 file_name을 검색하도록 수정 */
 	if (dir != NULL)
 		dir_lookup(dir, file_name, &inode);
 
-	// printf("[filesys_open] success : %d\n", success);
 	dir_close(dir); // 디렉토리를 닫는다
 	free(cp_name);
 	free(file_name);
@@ -221,17 +219,14 @@ bool filesys_remove(const char *name)
 	// 	return false;
 	// }
 
-
 	// dir_read(dir);
 	struct inode *file_inode;
 
 	dir_lookup(dir, file_name, &file_inode);
-	// printf("[1]\n");
 
 	if (inode_is_dir(file_inode))
 	{
 		struct dir *target_dir = dir_open(file_inode);
-		// printf("[2]\n");
 		// dir_read(target_dir);
 
 		// printf("[filesys_remove] target_dir: %p\n", target_dir);
@@ -239,37 +234,29 @@ bool filesys_remove(const char *name)
 		if (dir_read_count(target_dir)<=2)
 		{
 			// printf("비었다\n");
-			// printf("[3]\n");
 			success = dir_remove(dir, file_name);
 		}
 
 		// printf("temp_name : %s\n", temp_name);
-		// printf("[4]\n");
 
 		dir_close(target_dir);
-		// printf("[??]\n");
 
 		goto done;
 	}
 	else // 지우려고 하는 파일이 디렉토리가 아닌 '파일'인 경우
 	{
-		// printf("[5]\n");
 		inode_close(file_inode);
 		success = dir_remove(dir, file_name);
 		goto done;
 	}
-	// printf("[6]\n");
 
 	// bool success = dir != NULL && dir_remove(dir, file_name);
 done:
-	// printf("[7]\n");
 
 	dir_close(dir);
-	// printf("[8]\n");
 
 	free(cp_name);
 	free(file_name);
-	// printf("[9]\n");
 
 	return success;
 }

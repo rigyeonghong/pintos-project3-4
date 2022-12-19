@@ -405,3 +405,39 @@ bool inode_is_dir(const struct inode *inode)
     /* in-memory inode의 on-disk inode를 읽어 inode_disk에 저장 */ /* on-disk inode의 is_dir을 result에 저장하여 반환 */
     return result;
 }
+
+// link file 만드는 함수
+bool link_inode_create (disk_sector_t sector, char* path_name) {
+
+	struct inode_disk *disk_inode = NULL;
+	bool success = false;
+
+	ASSERT (strlen(path_name) >= 0);
+
+	/* If this assertion fails, the inode structure is not exactly
+	 * one sector in size, and you should fix that. */
+	ASSERT (sizeof *disk_inode == DISK_SECTOR_SIZE);
+
+	disk_inode = calloc (1, sizeof *disk_inode);
+	if (disk_inode != NULL) {
+		disk_inode->length = strlen(path_name) + 1;
+		disk_inode->magic = INODE_MAGIC;
+
+        // link file 여부 추가
+        disk_inode->isdir = 0;
+        disk_inode->islink = 1;
+
+        strlcpy(disk_inode->link_name, path_name, strlen(path_name) + 1);
+
+        cluster_t cluster = fat_create_chain(0);
+        if(cluster)
+        {
+            disk_inode->start = cluster;
+            disk_write (filesys_disk, cluster_to_sector(sector), disk_inode);
+            success = true;
+        }
+
+		free (disk_inode);
+	}
+	return success;
+}

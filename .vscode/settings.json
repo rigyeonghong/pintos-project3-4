@@ -11,6 +11,7 @@
         "thread.h": "c",
         "stdint.h": "c",
         "uninit.h": "c",
-        "malloc.h": "c"
+        "malloc.h": "c",
+        "inode.h": "c"
     }
 }

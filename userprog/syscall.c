@@ -248,7 +248,6 @@ int open(const char *file)
 	// check_address(file); // 파일 유효 주소 확인
 	// if (!strcmp(file, ".") || !strcmp(file, ".."))
 	// 	return -1;
-
 	if (file == NULL)
 	{
 		exit(-1);
@@ -568,12 +567,12 @@ bool readdir(int fd, char *name)
 		return false;
 
 	/* p_file을 dir 자료구조로 포인팅 */
-	// struct dir *p_file = f;
-	// if (p_file->pos == 0)
-	// 	dir_seek(p_file, 2 * sizeof(struct dir_entry));
+	struct dir *p_file = f;
+	if (p_file->pos == 0)
+		dir_seek(p_file, 2 * sizeof(struct dir_entry));
 
 	/* 디렉터리의 엔트에서 ".",".." 이름을 제외한 파일이름을 name에 저장*/
-	bool result = dir_readdir(f, name);
+	bool result = dir_readdir(p_file, name);
 	return result;
 }
 

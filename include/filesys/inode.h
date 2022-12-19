@@ -23,8 +23,10 @@ struct inode_disk
     disk_sector_t start;
     off_t length;         /* File size in bytes. */
     unsigned magic;       /* Magic number. */
-    uint32_t isdir;       /* [DR] file = 0, dir = 1 */
-    uint32_t unused[124]; /* Not used. */
+    uint32_t isdir;       /* file = 0, dir = 1 */
+    uint32_t islink;      
+    // uint32_t unused[124]; /* Not used. */
+    char link_name[492];     // 멤버 추가시마다 512바이트 맞추기
 };
 
 /* In-memory inode. */
@@ -52,5 +54,6 @@ void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
 
 bool inode_is_dir(const struct inode *);
+bool link_inode_create (disk_sector_t sector, char* path_name);
 
 #endif /* filesys/inode.h */
