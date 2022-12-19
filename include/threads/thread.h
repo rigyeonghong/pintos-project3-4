@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "threads/interrupt.h"
 #include "threads/synch.h"
+#include "filesys/directory.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -170,6 +171,9 @@ struct thread {
 	/* Project 3 - VM */
 	uintptr_t rsp;
 	struct list mmap_list;
+
+	/* Project 4 - File System */
+	struct dir *cur_dir;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

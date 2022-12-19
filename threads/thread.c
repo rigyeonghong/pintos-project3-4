@@ -145,6 +145,8 @@ void thread_init (void) {
 	init_thread (initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
+	/* [DR] struct thread에서 추가한 필드를 NULL로 초기화 */
+	initial_thread->cur_dir = NULL;
 
 	next_tick_to_awake = INT64_MAX; // Project 1 - Alarm Clock : next_tick_to_awake (전역변수) - sleep_list에서 대기 중인 스레드들의 wakeup_tick 값 중 최솟값
 
@@ -232,8 +234,15 @@ thread_create(const char *name, int priority,
 		return TID_ERROR;
 
 	/* Initialize thread. */
-	init_thread(t, name, priority);
-	tid = t->tid = allocate_tid();
+	init_thread (t, name, priority);
+	tid = t->tid = allocate_tid ();
+	
+	if (thread_current()->cur_dir !=NULL){
+		/* [DR] 자식 스레드의 작업 디렉터리를 부모 스레드의 작업 디렉터리로 디렉터리를 다시 오픈하여 설정 */
+		struct dir *parent_cur_dir = thread_current()->parent_thread->cur_dir;
+		thread_current()->cur_dir = dir_reopen(parent_cur_dir);
+	}
+
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
 	t->tf.rip = (uintptr_t)kernel_thread; 	//PC 실행할 다음 인스트럭션의 메모리주소를 가리킴
