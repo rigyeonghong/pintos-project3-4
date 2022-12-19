@@ -108,11 +108,13 @@ fsutil_put (char **argv) {
 	if (!filesys_create (file_name, size))
 		PANIC ("%s: create failed", file_name);
 	dst = filesys_open (file_name);
+	// printf("================================= %d\n",size);
 	if (dst == NULL)
 		PANIC ("%s: open failed", file_name);
 
 	/* Do copy. */
-	while (size > 0) {
+	while (size > 0)
+	{
 		int chunk_size = size > DISK_SECTOR_SIZE ? DISK_SECTOR_SIZE : size;
 		disk_read (src, sector++, buffer);
 		if (file_write (dst, buffer, chunk_size) != chunk_size)

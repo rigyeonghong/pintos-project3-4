@@ -11,6 +11,8 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "intrinsic.h"
+#include "filesys/inode.h"
+#include "filesys/directory.h"
 
 #include "threads/fixed_point.h" // Project 1 - MLFQS
 #ifdef USERPROG
@@ -143,6 +145,9 @@ void thread_init (void) {
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
 
+	/* [DR] struct thread에서 추가한 필드를 NULL로 초기화 */
+	initial_thread->cur_dir = NULL;
+
 	next_tick_to_awake = INT64_MAX; // Project 1 - Alarm Clock : next_tick_to_awake (전역변수) - sleep_list에서 대기 중인 스레드들의 wakeup_tick 값 중 최솟값
 }
 
@@ -227,6 +232,17 @@ thread_create(const char *name, int priority,
 	/* Initialize thread. */
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
+
+	if (thread_current()->cur_dir != NULL)
+	{
+		/* [DR] 자식 스레드의 작업 디렉터리를 부모 스레드의 작업 디렉터리로 디렉터리를 다시 오픈하여 설정 ??*/
+		// struct dir *parent_cu = thread_current()->parent_thread->cur_dir;
+		// // printf("parent_cur_dir : %p\n", parent_cur_dir);
+		// printf("[thread_create] 부모 현재 디렉토리: %p\n", thread_current()->cur_dir->inode);
+		t->cur_dir = dir_reopen(thread_current()->cur_dir);
+		// printf("[thread_create] 자식의 현재 디렉토리: %p\n", t->cur_dir);
+		// printf("[thread_create] 자식의 현재 디렉토리 아이노드: %p\n", t->cur_dir->inode);
+	}
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */

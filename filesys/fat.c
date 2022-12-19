@@ -162,7 +162,9 @@ fat_fs_init (void) {
     `fat_fs`의 `fat_length`와 `data_start` 필드를 초기화해야 합니다.
     `fat_length`는 파일 시스템의 클러스터 수를 저장하고, `data_start`는 파일 저장을 시작할 수 있는 섹터를 저장합니다. 
     `fat_fs→bs`에 저장된 일부 값을 이용할 수 있습니다. 또한, 이 함수에서 다른 유용한 데이터들을 초기화할 수도 있습니다.*/
-    fat_fs->fat_length = fat_fs->bs.total_sectors;
+    fat_fs->fat_length = disk_size(filesys_disk) - fat_fs->bs.fat_sectors -1;
+    // fat_fs->fat_length = fat_fs->bs.total_sectors;
+    // printf("disk_size: %d\n", disk_size(filesys_disk));
     fat_fs->data_start = fat_fs->bs.fat_start + fat_fs->bs.fat_sectors;
 }
 
@@ -181,21 +183,14 @@ fat_create_chain (cluster_t clst) {
     /* clst(클러스터 인덱싱 번호)로 특정된 클러스터의 뒤에 클러스터를 추가하여 체인을 확장합니다. 
     clst가 0이면 새 체인을 만듭니다. 
     새로 할당된 클러스터의 번호를 반환합니다. */
-    // printf("[1]\n");
 
     for(cluster_t i= 2 ; i <= (fat_fs->fat_length); i++){
         cluster_t value = fat_get(i); // fat[i] 확인
-        // printf("[2]\n");
         if(value == 0){ // 만약에 i번째 클러스터가 비어 있다면
-            // printf("[3]\n");
             fat_put(i, EOChain); // 새로운 클러스터 할당
-            // printf("[4]\n");
             if (clst != 0){ // clst가 0이 아니면
-                // printf("[5], clst:%d, i:%d\n", clst, i);
                 fat_put(clst, i); // 원래 체인에 새로 할당한 클러스터 번호를 넣어줌
-                // printf("[6]\n");
             }
-            // printf("[7]\n");
             return i; 
         }
     }    
@@ -234,8 +229,15 @@ fat_remove_chain (cluster_t clst, cluster_t pclst) {
 /* FAT 테이블의 값 업데이트 */
 void
 fat_put (cluster_t clst, cluster_t val) {
-    /* 클러스터 번호 clst가 가리키는 FAT 엔트리를 val로 업데이트합니다. 
-    FAT의 각 엔트리가 체인의 다음 클러스터를 가리키므로, (존재하는 경우; 그렇지 않다면 EOChain) 
+    if(cluster_to_sector(clst) >= disk_size(filesys_disk)){
+        // printf("clst-2: %d\n", clst - 2);
+        return;
+    }
+
+    // printf("fat_put clst : %d\n", clst);
+    // printf("fat_put disk_size : %d\n", );
+    /* 클러스터 번호 clst가 가리키는 FAT 엔트리를 val로 업데이트합니다.
+    FAT의 각 엔트리가 체인의 다음 클러스터를 가리키므로, (존재하는 경우; 그렇지 않다면 EOChain)
     이는 연결을 업데이트하는데 사용할 수 있습니다.  */
     unsigned int *fat= fat_fs->fat;
     fat[clst-1] = val;
