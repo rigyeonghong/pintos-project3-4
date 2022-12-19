@@ -41,6 +41,7 @@ void filesys_init(bool format)
 		do_format();
 
 	free_map_open();
+	thread_current()->cur_dir = dir_open_root();
 #endif
 }
 
@@ -236,4 +237,32 @@ struct dir *parse_path(char *path_name, char *file_name)
 
 	fail: 
 		return NULL;
+}
+
+bool filesys_create_dir(const char *name)
+{
+	/* name 경로 분석 */
+	char *cp_name = (char *)malloc(strlen(name) + 1);
+	strlcpy(cp_name, name, strlen(name) + 1);
+
+	char *file_name = (char *)malloc(strlen(name) + 1);
+	struct dir *dir = parse_path(cp_name, file_name);
+
+	// 새로운 디렉토리의 inode sector 할당
+	disk_sector_t new_sector = cluster_to_chain(fat_create_chain(0));
+
+	// new_sector에 해당하는 디렉토리 생성
+	dir_create(new_sector, 16);
+
+	// 할당받은 sector에 file_name의 디렉터리 생성
+	dir_add(dir, file_name, new_sector);
+
+	struct inode *sub_inode = NULL;
+	struct dir *sub_dir;
+	dir_lookup(dir, file_name, &sub_inode);
+
+	// 디렉터리 엔트리에 '.', '..' 파일의 엔트리 추가 
+	dir_add(sub_dir = dir_open(sub_inode), '.', new_sector); // '.' 디렉토리를 현재 디렉토리의 아이노드 섹터와 연결 
+	dir_add(sub_dir, '..', inode_get_inumber(dir_get_inode(dir))); // '..' 디렉토리를 상위 디렉토리의 아이노드 섹터와 연결
+	
 }

@@ -435,7 +435,7 @@ off_t inode_length(const struct inode *inode)
 bool inode_is_dir(const struct inode *inode){
 	bool result;
 
-    struct inode_disk *on_disk_inode = calloc(1, sizeof *inode_disk);
+    struct inode_disk *on_disk_inode = calloc(1, sizeof(struct inode_disk));
 
     disk_read(filesys_disk, inode->sector, on_disk_inode);
 

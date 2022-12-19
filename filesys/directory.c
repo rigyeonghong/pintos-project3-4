@@ -236,9 +236,9 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1]) {
 }
 
 // 디렉토리 포지션 변경
-void 
-dir_seek (struct dir *dir, off_t new_pos) {
-    ASSERT (dir != NULL);
-    ASSERT (new_pos >= 0);
-    dir->pos = new_pos;
+void dir_seek(struct dir *dir, off_t new_pos)
+{
+	ASSERT(dir != NULL);
+	ASSERT(new_pos >= 0);
+	dir->pos = new_pos;
 }
