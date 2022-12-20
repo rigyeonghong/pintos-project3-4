@@ -78,7 +78,6 @@ void filesys_init(bool format)
 		do_format();
 
 	free_map_open();
-	// thread_current()->cur_dir = dir_open_root();
 #endif
 }
 
@@ -183,10 +182,6 @@ filesys_open(const char *name)
 	dir_close(dir); // 디렉토리를 닫는다
 	free(cp_name);
 	free(file_name);
-	
-	// if(inode->removed == true){
-	// 	return NULL;
-	// }
 
 	// 받은 디렉토리의 아이노드를 이용해서 파일을 연다
 	return file_open(inode);
@@ -220,10 +215,6 @@ bool filesys_remove(const char *name)
 
 	struct dir * dir = parse_path(cp_name, file_name);
 
-	// if (dir==NULL){
-	// 	return false;
-	// }
-
 	struct inode *file_inode;
 
 	dir_lookup(dir, file_name, &file_inode);
@@ -249,7 +240,6 @@ bool filesys_remove(const char *name)
 		goto done;
 	}
 
-	// bool success = dir != NULL && dir_remove(dir, file_name);
 done:
 
 	dir_close(dir);
@@ -261,10 +251,10 @@ done:
 }
 
 /* Formats the file system. */
-static void
-do_format(void)
-{
-	printf("Formatting file system...");
+	static void
+	do_format(void)
+	{
+		printf("Formatting file system...");
 
 #ifdef EFILESYS
 	/* Create FAT and save it to the disk. */
@@ -319,7 +309,6 @@ struct dir *parse_path(char *path_name, char *file_name)
 	{
 		dir = dir_reopen(thread_current()->cur_dir);
 	}
-
 
 	char *token, *nextToken, *savePtr;
 	token = strtok_r(path_name, "/", &savePtr);
@@ -406,18 +395,6 @@ bool filesys_create_dir(const char *name)
 
 	struct inode *sub_inode;
 	struct dir *sub_dir = NULL;
-
-	// int result_1 = ;
-	// // printf("result_1: %d\n", result_1);
-	// int result_2 = ;
-	// // printf("result_2: %d\n", result_2);
-	// int result_3 = ;
-	// sub_dir = dir_open(sub_inode);
-	// // printf("sub_dir: %p\n", sub_dir);
-	// int result_4 = ;
-	// // printf("result_4: %d\n", result_4);
-	// int result_5 = ;
-	// // printf("result_5: %d\n", result_5);
 
 	success = (dir != NULL && dir_create(new_sector, 16)															// new_sector에 해당하는 디렉토리 생성
 			   && dir_add(dir, file_name, new_sector)																// 할당받은 sector에 file_name의 디렉터리 생성

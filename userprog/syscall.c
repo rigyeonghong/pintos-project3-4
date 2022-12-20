@@ -226,7 +226,6 @@ void exit(int status)
 
 bool create(const char *file, unsigned initial_size)
 {
-	
 	check_address(file);
 	if (!strcmp(file, ""))
 		return false;
@@ -245,9 +244,6 @@ bool remove(const char *file)
 
 int open(const char *file)
 {
-	// check_address(file); // 파일 유효 주소 확인
-	// if (!strcmp(file, ".") || !strcmp(file, ".."))
-	// 	return -1;
 	if (file == NULL)
 	{
 		exit(-1);
@@ -329,9 +325,7 @@ int read(int fd, void *buffer, unsigned size)
 
 int write(int fd, const void *buffer, unsigned size)
 {
-
 	check_address(buffer);						  // 버퍼 유효주소 확인
-
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
 
 
@@ -477,7 +471,6 @@ void munmap(void *addr)
 // 현재 작업 디렉토리를 변경
 bool chdir(const char *dir)
 { // 현 디렉토리 경로를 인자로 받음
-	// printf("=========CHDIR==========\n");
 	if (dir == NULL)
 	{
 		return false;
@@ -502,15 +495,12 @@ bool chdir(const char *dir)
 	char *token, *savePtr;
 	token = strtok_r(cp_name, "/", &savePtr); // cp_name안에서 "/"만나면 분리 후 (앞까지는 token에 저장) savePtr에 위치 저장
 
-	
-	
 	struct inode *inode = NULL;
 	while (token != NULL)
 	{
 		// dir에서 token 이름의 파일 검색해 inode의 정보를 저장
 		if (!dir_lookup(chdir, token, &inode))
 		{					  // chdir에서 지정된 이름의 파일 검색 후 있으면 true를 반환 && *inode를 inode로 설정
-			// printf("없다\n");
 			dir_close(chdir); // 호출자는 *inode 닫아야함
 			return false;
 		}
@@ -603,34 +593,6 @@ struct cluster_t *inumber(int fd)
 	return inode_get_inumber(file_get_inode(f));
 }
 
-// 바로가기 file 생성
-// int symlink(const char *target, const char *linkpath)
-// {
-// 	// SOFT LINK
-// 	bool success = false;
-// 	char *cp_link = (char *)malloc(strlen(linkpath) + 1);
-// 	strlcpy(cp_link, linkpath, strlen(linkpath) + 1);
-
-// 	// cp_name의경로분석
-// 	char *file_link = (char *)malloc(strlen(cp_link) + 1);
-// 	struct dir *dir = parse_path(cp_link, file_link);
-
-// 	cluster_t inode_cluster = fat_create_chain(0);
-
-// 	// link file 전용 inode 생성 및 directory에 추가
-// 	success = (dir != NULL && link_inode_create(inode_cluster, target) && dir_add(dir, file_link, inode_cluster));
-
-// 	if (!success && inode_cluster != 0)
-// 	{
-// 		fat_remove_chain(inode_cluster, 0);
-// 	}
-
-// 	dir_close(dir);
-// 	free(cp_link);
-// 	free(file_link);
-
-// 	return success - 1;
-// }
 
 int symlink(const char *target, const char *linkpath)
 {

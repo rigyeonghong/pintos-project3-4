@@ -230,6 +230,9 @@ vm_evict_frame(void)
  * and return it. This always return valid address. That is, if the user pool
  * memory is full, this function evicts the frame to get the available memory
  * space.*/
+/* palloc()하고 frame을 얻음. 사용 가능한 페이지가 없는 경우 페이지를 삭제하고 반환 
+   항상 유효한 주소를 반환. 
+   즉, user pool 메모리가 가득 차면 이 기능은 사용 가능한 메모리 공간을 얻기 위해 프레임을 제거 */
 static struct frame *
 vm_get_frame(void)
 {
@@ -349,6 +352,7 @@ void vm_dealloc_page(struct page *page)
 /* Claim the page that allocate on VA. */
 bool vm_claim_page(void *va UNUSED)
 {
+
 	struct page *page = NULL;
 	/* TODO: Fill this function */
 	page = spt_find_page(&thread_current()->spt, va);
@@ -366,6 +370,7 @@ bool vm_do_claim_page(struct page *page)
 	int result = false;
 	struct thread *t = thread_current();
 
+
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
@@ -376,6 +381,7 @@ bool vm_do_claim_page(struct page *page)
 
 	if (!install_page(page->va, frame->kva, page->writable))
 		return false;
+
 
 	result = swap_in(page, frame->kva);
 	return result;

@@ -12,6 +12,7 @@
 #include "threads/vaddr.h"
 
 /* List files in the root directory. */
+/* 루트 디렉터리에 있는 파일을 나열 */
 void
 fsutil_ls (char **argv UNUSED) {
 	struct dir *dir;
@@ -28,6 +29,7 @@ fsutil_ls (char **argv UNUSED) {
 
 /* Prints the contents of file ARGV[1] to the system console as
  * hex and ASCII. */
+/* ARGV[1] 파일의 내용을 시스템 콘솔에 16진수 및 ASCII로 인쇄 */
 void
 fsutil_cat (char **argv) {
 	const char *file_name = argv[1];
@@ -53,6 +55,7 @@ fsutil_cat (char **argv) {
 }
 
 /* Deletes file ARGV[1]. */
+/* ARGV[1] 파일을 삭제 */
 void
 fsutil_rm (char **argv) {
 	const char *file_name = argv[1];

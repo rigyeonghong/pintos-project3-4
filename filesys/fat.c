@@ -258,6 +258,7 @@ disk_sector_t
 cluster_to_sector (cluster_t clst) {
     /* 클러스터 번호 clst를 해당하는 섹터 번호로 변환하고, 반환합니다.*/
     // 157 + clst 
+    // fat_sectors + clst(마치 index)
     return fat_fs->bs.fat_sectors + clst;
 }
 
