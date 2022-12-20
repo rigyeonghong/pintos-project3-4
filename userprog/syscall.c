@@ -19,7 +19,8 @@
 #include "threads/vaddr.h"
 #include "filesys/directory.h"
 
-void syscall_entry(void);
+	void
+	syscall_entry(void);
 void syscall_handler(struct intr_frame *);
 struct page *check_address(void *addr);
 
@@ -162,6 +163,9 @@ void syscall_handler(struct intr_frame *f UNUSED)
 	case SYS_INUMBER:
 		f->R.rax = inumber(f->R.rdi);
 		break;
+	case SYS_SYMLINK:
+		f->R.rax = symlink(f->R.rdi, f->R.rsi);
+		break;
 	default:
 		exit(-1);
 		break;
@@ -222,12 +226,13 @@ void exit(int status)
 
 bool create(const char *file, unsigned initial_size)
 {
-
-    check_address(file);
-    lock_acquire(&filesys_lock);
-    bool result = filesys_create(file, initial_size); // directory:filesys / filesys.c
-    lock_release(&filesys_lock);
-    return result;
+	check_address(file);
+	if (!strcmp(file, ""))
+		return false;
+	lock_acquire(&filesys_lock);
+	bool result = filesys_create(file, initial_size); // directory:filesys / filesys.c
+	lock_release(&filesys_lock);
+	return result;
 }
 
 bool remove(const char *file)
@@ -239,7 +244,6 @@ bool remove(const char *file)
 
 int open(const char *file)
 {
-	check_address(file); // 파일 유효 주소 확인
 	if (file == NULL)
 	{
 		exit(-1);
@@ -321,9 +325,9 @@ int read(int fd, void *buffer, unsigned size)
 
 int write(int fd, const void *buffer, unsigned size)
 {
-
 	check_address(buffer);						  // 버퍼 유효주소 확인
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
+
 
 	int key_length;
 	if (get_file == NULL)
@@ -348,6 +352,7 @@ int write(int fd, const void *buffer, unsigned size)
 		key_length = file_write(get_file, buffer, size); // return bytes_read; //가져온 파일에서 읽고 버퍼에 넣어준다.
 		lock_release(&filesys_lock);					 // 락 해제
 	}
+
 	return key_length;
 };
 
@@ -457,7 +462,7 @@ void *mmap(void *addr, size_t length, int writable, int fd, off_t offset)
 
 void munmap(void *addr)
 {
-    do_munmap(addr);
+	do_munmap(addr);
 }
 
 // dir의 디렉터리 정보를 얻어옴
@@ -586,4 +591,19 @@ struct cluster_t *inumber(int fd)
 		return false;
 
 	return inode_get_inumber(file_get_inode(f));
+}
+
+
+int symlink(const char *target, const char *linkpath)
+{
+	char *copy_linkpath = (char *)malloc(strlen(linkpath) + 1);
+	strlcpy(copy_linkpath, linkpath, strlen(linkpath) + 1);
+
+	// lock_acquire(&file_lock);
+	int result = filesys_create_link(target, copy_linkpath);
+	// lock_release(&file_lock);
+
+	free(copy_linkpath);
+
+	return result;
 }

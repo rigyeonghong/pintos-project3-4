@@ -4,10 +4,45 @@
 #include <stdbool.h>
 #include "filesys/off_t.h"
 #include "devices/disk.h"
+#include <list.h>
+#include <debug.h>
+#include <round.h>
+#include <string.h>
+#include "filesys/filesys.h"
+#include "filesys/free-map.h"
+#include "filesys/fat.h"
+#include "threads/malloc.h"
 
 struct bitmap;
 
+/* On-disk inode.
+ * Must be exactly DISK_SECTOR_SIZE bytes long. */
+
+struct inode_disk
+{
+    disk_sector_t start;
+    off_t length;         /* File size in bytes. */
+    unsigned magic;       /* Magic number. */
+    uint32_t isdir;       /* file = 0, dir = 1 */
+    uint32_t islink;      
+    // uint32_t unused[124]; /* Not used. */
+    char link_name[492];     // 멤버 추가시마다 512바이트 맞추기
+};
+
+/* In-memory inode. */
+struct inode
+{
+    struct list_elem elem; /* Element in inode list. */
+    disk_sector_t sector;
+    int open_cnt;           /* Number of openers. */
+    bool removed;           /* True if deleted, false otherwise. */
+    int deny_write_cnt;     /* 0: writes ok, >0: deny writes. */
+    struct inode_disk data; /* Inode content. */
+};
+
 void inode_init (void);
+bool inode_create (disk_sector_t, off_t, uint32_t);
+
 struct inode *inode_open (disk_sector_t);
 struct inode *inode_reopen (struct inode *);
 disk_sector_t inode_get_inumber (const struct inode *);
@@ -20,5 +55,12 @@ void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
 bool inode_create(disk_sector_t sector, off_t length, uint32_t is_dir);
 bool inode_is_dir(const struct inode *inode);
+
+bool inode_is_dir(const struct inode *);
+bool link_inode_create (disk_sector_t sector, char* path_name);
+
+bool inode_create_link(disk_sector_t sector, char *path_name);
+bool inode_is_link(const struct inode *inode);
+char *inode_get_link_name(const struct inode *inode);
 
 #endif /* filesys/inode.h */

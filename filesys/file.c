@@ -94,6 +94,10 @@ file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs) {
 읽은 바이트 수만큼 파일의 위치를 전진시킵니다.*/
 off_t
 file_write (struct file *file, const void *buffer, off_t size) {
+
+	if (inode_is_dir(file->inode)){
+		return -1;
+	}
 	off_t bytes_written = inode_write_at (file->inode, buffer, size, file->pos);
 	file->pos += bytes_written;
 	return bytes_written;
