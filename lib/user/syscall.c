@@ -23,6 +23,7 @@ static __inline int64_t syscall (uint64_t num_, uint64_t a1_, uint64_t a2_,
 			"mov %6, %%r8\n"
 			"mov %7, %%r9\n"
 			"syscall\n"	  // 어셈블리어로 syscall 호출
+
 			: "=a" (ret)
 			: "g" (num), "g" (a1), "g" (a2), "g" (a3), "g" (a4), "g" (a5), "g" (a6)
 			: "cc", "memory");

@@ -39,6 +39,7 @@ dir_open(struct inode *inode)
 
 
 /* 루트 디렉토리를 열고, 이에 해당하는 dir을 반환한다.
+
    즉, 이 파일을 실행하면 dir를 가지고, 이 dir은 ROOT_DIR_SECTOR를 열 수 있다.*/
 struct dir *
 dir_open_root(void)
@@ -50,6 +51,7 @@ dir_open_root(void)
 
 /* DIR과 동일한 inode에 대한 새 디렉토리를 열고 반환합니다.
  * 실패 시 null 포인터를 반환 */
+
 struct dir *
 dir_reopen(struct dir *dir)
 {
@@ -111,6 +113,7 @@ lookup(const struct dir *dir, const char *name,
 bool dir_lookup(const struct dir *dir, const char *name,
 				struct inode **inode)
 {
+
 	struct dir_entry e;
 
 	ASSERT(dir != NULL);

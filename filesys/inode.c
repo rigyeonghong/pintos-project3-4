@@ -3,7 +3,6 @@
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
-
 /* Returns the number of sectors to allocate for an inode SIZE
  * bytes long. */
 static inline size_t

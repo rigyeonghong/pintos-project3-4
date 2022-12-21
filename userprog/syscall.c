@@ -226,7 +226,6 @@ void exit(int status)
 
 bool create(const char *file, unsigned initial_size)
 {
-	
 	check_address(file);
 	if (!strcmp(file, ""))
 		return false;
@@ -324,9 +323,7 @@ int read(int fd, void *buffer, unsigned size)
 
 int write(int fd, const void *buffer, unsigned size)
 {
-
 	check_address(buffer);						  // 버퍼 유효주소 확인
-
 	struct file *get_file = process_get_file(fd); // 파일 가져오기
 
 
@@ -494,8 +491,6 @@ bool chdir(const char *dir)
 	char *token, *savePtr;
 	token = strtok_r(cp_name, "/", &savePtr); // cp_name안에서 "/"만나면 분리 후 (앞까지는 token에 저장) savePtr에 위치 저장
 
-	
-	
 	struct inode *inode = NULL;
 	while (token != NULL)
 	{

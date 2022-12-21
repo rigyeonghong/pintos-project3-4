@@ -78,7 +78,6 @@ void filesys_init(bool format)
 		do_format();
 
 	free_map_open();
-	// thread_current()->cur_dir = dir_open_root();
 #endif
 }
 
@@ -245,10 +244,10 @@ done:
 }
 
 /* Formats the file system. */
-static void
-do_format(void)
-{
-	printf("Formatting file system...");
+	static void
+	do_format(void)
+	{
+		printf("Formatting file system...");
 
 #ifdef EFILESYS
 	/* Create FAT and save it to the disk. */
@@ -302,7 +301,6 @@ struct dir *parse_path(char *path_name, char *file_name)
 	{
 		dir = dir_reopen(thread_current()->cur_dir);
 	}
-
 
 	char *token, *nextToken, *savePtr;
 	token = strtok_r(path_name, "/", &savePtr);
