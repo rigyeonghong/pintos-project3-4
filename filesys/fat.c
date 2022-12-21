@@ -163,8 +163,6 @@ fat_fs_init (void) {
     `fat_length`는 파일 시스템의 클러스터 수를 저장하고, `data_start`는 파일 저장을 시작할 수 있는 섹터를 저장합니다. 
     `fat_fs→bs`에 저장된 일부 값을 이용할 수 있습니다. 또한, 이 함수에서 다른 유용한 데이터들을 초기화할 수도 있습니다.*/
     fat_fs->fat_length = disk_size(filesys_disk) - fat_fs->bs.fat_sectors -1;
-    // fat_fs->fat_length = fat_fs->bs.total_sectors;
-    // printf("disk_size: %d\n", disk_size(filesys_disk));
     fat_fs->data_start = fat_fs->bs.fat_start + fat_fs->bs.fat_sectors;
 }
 
@@ -172,9 +170,6 @@ fat_fs_init (void) {
 /* FAT handling                                                               */
 /*----------------------------------------------------------------------------*/
 
-/* Add a cluster to the chain.
- * If CLST is 0, start a new chain.
- * Returns 0 if fails to allocate a new cluster. */
 /* 체인에 클러스터를 추가합니다.
 * CLST가 0이면 새 체인을 시작합니다.
 * 새 클러스터를 할당하지 못하면 0을 반환합니다.*/
@@ -197,8 +192,7 @@ fat_create_chain (cluster_t clst) {
     return 0;
 }
 
-/* Remove the chain of clusters starting from CLST.
- * If PCLST is 0, assume CLST as the start of the chain. */
+
 /* CLST에서 시작하는 클러스터 체인을 제거합니다.
 * PCLST가 0이면 CLST를 체인의 시작으로 가정합니다.*/
 void
@@ -221,21 +215,16 @@ fat_remove_chain (cluster_t clst, cluster_t pclst) {
 
     if(pclst != 0)
         fat_put(pclst, EOChain);    // pclst의 값을 -1로 만듦
-    //[4-1?] 검증이 필요한가? 
 }
 
 
-/* Update a value in the FAT table. */
 /* FAT 테이블의 값 업데이트 */
 void
 fat_put (cluster_t clst, cluster_t val) {
     if(cluster_to_sector(clst) >= disk_size(filesys_disk)){
-        // printf("clst-2: %d\n", clst - 2);
         return;
     }
 
-    // printf("fat_put clst : %d\n", clst);
-    // printf("fat_put disk_size : %d\n", );
     /* 클러스터 번호 clst가 가리키는 FAT 엔트리를 val로 업데이트합니다.
     FAT의 각 엔트리가 체인의 다음 클러스터를 가리키므로, (존재하는 경우; 그렇지 않다면 EOChain)
     이는 연결을 업데이트하는데 사용할 수 있습니다.  */
@@ -243,7 +232,6 @@ fat_put (cluster_t clst, cluster_t val) {
     fat[clst-1] = val;
 }
 
-/* Fetch a value in the FAT table. */
 /* FAT 테이블에서 값을 가져옴 */
 cluster_t
 fat_get (cluster_t clst) {
@@ -253,7 +241,6 @@ fat_get (cluster_t clst) {
 }
 
 /* Covert a cluster # to a sector number. */
-/* 클러스터 # 을 섹터 번호로 암호화함 */
 disk_sector_t
 cluster_to_sector (cluster_t clst) {
     /* 클러스터 번호 clst를 해당하는 섹터 번호로 변환하고, 반환합니다.*/
@@ -262,7 +249,6 @@ cluster_to_sector (cluster_t clst) {
 }
 
 /* Covert a cluster # to a sector number. */
-/* 클러스터 # 을 섹터 번호로 암호화함 */
 cluster_t
 sector_to_cluster(disk_sector_t sector)
 {

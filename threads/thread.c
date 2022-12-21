@@ -236,12 +236,7 @@ thread_create(const char *name, int priority,
 	if (thread_current()->cur_dir != NULL)
 	{
 		/* [DR] 자식 스레드의 작업 디렉터리를 부모 스레드의 작업 디렉터리로 디렉터리를 다시 오픈하여 설정 ??*/
-		// struct dir *parent_cu = thread_current()->parent_thread->cur_dir;
-		// // printf("parent_cur_dir : %p\n", parent_cur_dir);
-		// printf("[thread_create] 부모 현재 디렉토리: %p\n", thread_current()->cur_dir->inode);
 		t->cur_dir = dir_reopen(thread_current()->cur_dir);
-		// printf("[thread_create] 자식의 현재 디렉토리: %p\n", t->cur_dir);
-		// printf("[thread_create] 자식의 현재 디렉토리 아이노드: %p\n", t->cur_dir->inode);
 	}
 
 	/* Call the kernel_thread if it scheduled.

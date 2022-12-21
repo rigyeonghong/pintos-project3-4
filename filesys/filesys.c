@@ -150,7 +150,7 @@ filesys_open(const char *name)
 	struct dir *dir = NULL;
 	char *link_path;
 
-	/*[DR] name의 파일경로를 cp_name에 복사, cp_name의 경로를 분석하여 파일명을 file_name에 저장 */
+	/* name의 파일경로를 cp_name에 복사, cp_name의 경로를 분석하여 파일명을 file_name에 저장 */
 	strlcpy(cp_name, name, strlen(name) + 1);
 	dir = parse_path(cp_name, file_name);
 
@@ -158,13 +158,11 @@ filesys_open(const char *name)
 		return NULL;
 	}
 
-	// printf("[filesys_open] file_name : %s\n", file_name);
-	// printf("[filesys_open] dir : %p\n", dir);
 	if (dir->inode->removed == true){
 		return NULL;
 	}
-	// dir_read(dir);
-	/*[DR] 디렉토리 엔트리에서 file_name을 검색하도록 수정 */
+
+	/* 디렉토리 엔트리에서 file_name을 검색하도록 수정 */
 	if (dir != NULL)
 		dir_lookup(dir, file_name, &inode);
 
@@ -183,13 +181,8 @@ filesys_open(const char *name)
 	dir_close(dir); // 디렉토리를 닫는다
 	free(cp_name);
 	free(file_name);
-	
-	// if(inode->removed == true){
-	// 	return NULL;
-	// }
 
-	// 받은 디렉토리의 아이노드를 이용해서 파일을 연다
-	return file_open(inode);
+	return file_open(inode); // 받은 디렉토리의 아이노드를 이용해서 파일을 연다
 }
 
 /* Deletes the file named NAME.
@@ -214,16 +207,10 @@ bool filesys_remove(const char *name)
 	char *cp_name = (char *)malloc(strlen(name) + 1);
 	char *file_name = (char *)malloc(strlen(name) + 1);
 	bool success;
-	// printf("[filesys_remove] %s \n", name);
 
 	strlcpy(cp_name, name, strlen(name) + 1);
 
 	struct dir * dir = parse_path(cp_name, file_name);
-
-	// if (dir==NULL){
-	// 	return false;
-	// }
-
 	struct inode *file_inode;
 
 	dir_lookup(dir, file_name, &file_inode);
@@ -237,9 +224,7 @@ bool filesys_remove(const char *name)
 			success = dir_remove(dir, file_name);
 		}
 
-
 		dir_close(target_dir);
-
 		goto done;
 	}
 	else // 지우려고 하는 파일이 디렉토리가 아닌 '파일'인 경우
@@ -249,7 +234,6 @@ bool filesys_remove(const char *name)
 		goto done;
 	}
 
-	// bool success = dir != NULL && dir_remove(dir, file_name);
 done:
 
 	dir_close(dir);
@@ -280,7 +264,6 @@ do_format(void)
 	dir_add(root_dir, ".", root);
 	dir_add(root_dir, "..", root);
 	dir_close(root_dir);
-	// thread_current()->cur_dir = dir_open_root();
 
 	fat_close();
 #else
@@ -407,18 +390,6 @@ bool filesys_create_dir(const char *name)
 	struct inode *sub_inode;
 	struct dir *sub_dir = NULL;
 
-	// int result_1 = ;
-	// // printf("result_1: %d\n", result_1);
-	// int result_2 = ;
-	// // printf("result_2: %d\n", result_2);
-	// int result_3 = ;
-	// sub_dir = dir_open(sub_inode);
-	// // printf("sub_dir: %p\n", sub_dir);
-	// int result_4 = ;
-	// // printf("result_4: %d\n", result_4);
-	// int result_5 = ;
-	// // printf("result_5: %d\n", result_5);
-
 	success = (dir != NULL && dir_create(new_sector, 16)															// new_sector에 해당하는 디렉토리 생성
 			   && dir_add(dir, file_name, new_sector)																// 할당받은 sector에 file_name의 디렉터리 생성
 			   && dir_lookup(dir, file_name, &sub_inode) 
@@ -432,7 +403,6 @@ bool filesys_create_dir(const char *name)
 	}
 
 	// in-memory에 있는 dir, sub_dir 청소 (리소스 확보)
-	// printf("================sub_dir==================\n");
 	if (sub_dir)
 		dir_close(sub_dir);
 	dir_close(dir);

@@ -25,7 +25,6 @@ struct inode_disk
     unsigned magic;       /* Magic number. */
     uint32_t isdir;       /* file = 0, dir = 1 */
     uint32_t islink;      
-    // uint32_t unused[124]; /* Not used. */
     char link_name[492];     // 멤버 추가시마다 512바이트 맞추기
 };
 
